@@ -15,11 +15,31 @@
 <div class="warn">Your videos are stored only on this phone, never on a server. Anything you don't download within 24 hours is permanently deleted and can't be recovered.</div>
 <main>
 <section class="card">
+<h2>AI helper <small style="display:inline">(optional, free)</small></h2>
+<label for="key">Your free Gemini API key</label>
+<input type="password" id="key" placeholder="Paste key here" autocomplete="off">
+<small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone.</small>
+<label for="ref">Reference video (optional)</label>
+<input type="file" id="ref" accept="video/*">
+<small>A short clip that performed well, up to 18 MB. Only use videos you own or have permission to use.</small>
+<label for="topic">Topic or niche (optional)</label>
+<input type="text" id="topic" placeholder="e.g. strange facts about the ocean">
+<div class="row">
+<div><label for="lang">Language</label><input type="text" id="lang" value="English"></div>
+<div><label for="len">Length</label><select id="len"><option value="75">30 s</option><option value="110" selected>45 s</option><option value="165">1 min 06</option></select></div>
+</div>
+<button id="write">Write a fresh script</button>
+<small id="why"></small>
+<small>When you use AI, your reference video and text are sent to Google's Gemini API with your own key. Everything else stays on this phone.</small>
+</section>
+<section class="card">
 <label for="script">Script</label>
 <textarea id="script" rows="6" placeholder="Paste or type your script here"></textarea>
 <label for="voice">Voiceover audio (optional)</label>
 <input type="file" id="voice" accept="audio/*">
 <small>Make it with any free text-to-speech tool, then upload it. Without it, the video is silent and timed by reading speed.</small>
+<label><input type="checkbox" id="useai"> Make the voiceover with AI (needs the key above)</label>
+<select id="vname"><option>Kore</option><option>Puck</option><option>Charon</option><option>Aoede</option><option>Fenrir</option><option>Zephyr</option></select>
 <label for="wpm">Reading speed: <b id="wpmv">150</b> words per minute</label>
 <input type="range" id="wpm" min="80" max="260" value="150">
 <div class="row">

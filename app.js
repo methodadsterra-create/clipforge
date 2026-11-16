@@ -50,6 +50,48 @@ function frame(t,ws,ends){
 }
 const words=()=>$('script').value.trim().split(/\s+/).filter(Boolean);
 function idle(){const[w,h]=SZ[$('fmt').value];cv.width=w;cv.height=h;const s='Your words appear here one by one'.split(' ');frame(0,s,times(s,3))}
+/* ---- AI helper: Gemini with the user's own free key ---- */
+const TEXT_MODEL='gemini-3.8-flash',TTS_MODEL='gemini-3.8-flash-lite-tts',API='https://generativelanguage.googleapis.com/v1beta/models/';
+try{$('key').value=localStorage.getItem('cf_key')||''}catch(e){}
+$('key').oninput=()=>{try{localStorage.setItem('cf_key',$('key').value.trim())}catch(e){}};
+async function gem(model,body){
+  const k=$('key').value.trim();if(!k)throw new Error('Paste your free Gemini API key first.');
+  let r;try{r=await fetch(API+model+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},body:JSON.stringify(body)})}
+  catch(e){throw new Error('Could not reach Google. Check your connection.')}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error&&j.error.message||'Request failed ('+r.status+')');
+  return j;
+}
+const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
+async function writeScript(){
+  const f=$('ref').files[0],topic=$('topic').value.trim();
+  if(!f&&!topic){$('why').textContent='Add a reference video or a topic first.';return}
+  if(f&&f.size>18*1048576){$('why').textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
+  $('write').disabled=true;$('why').textContent='Working on it, this can take up to a minute…';
+  try{
+    const rules=`Language: ${$('lang').value||'English'}. Length: about ${$('len').value} words. Start with a hook in the first sentence, use short punchy sentences, build curiosity, and end with a strong closing line. Return JSON only: {"why_it_works":"2 or 3 sentences","script":"spoken words only, no headings, no stage directions"}.`;
+    const parts=[];
+    if(f){parts.push({inline_data:{mime_type:f.type||'video/mp4',data:await b64(f)}});
+      parts.push({text:`Watch this reference video and work out why it holds attention: hook, pacing, structure, ending. Then write a completely new, original voiceover script on the same general theme with a fresh angle${topic?' about: '+topic:''}. Never copy or closely paraphrase wording from the video. ${rules}`})}
+    else parts.push({text:`Write an original short-video voiceover script about: ${topic}. In why_it_works, explain the hook you chose. ${rules}`});
+    const j=await gem(TEXT_MODEL,{contents:[{parts}],generationConfig:{responseMimeType:'application/json'}});
+    const raw=(j.candidates&&j.candidates[0].content.parts.map(x=>x.text||'').join(''))||'';
+    let o;try{o=JSON.parse(raw)}catch(e){o={script:raw,why_it_works:''}}
+    $('script').value=(o.script||'').trim();$('why').textContent=o.why_it_works?'Why it works: '+o.why_it_works:'Script ready below. Edit it freely.';
+    $('script').scrollIntoView({behavior:'smooth'});
+  }catch(e){$('why').textContent='Something went wrong: '+e.message}
+  $('write').disabled=false;
+}
+$('write').onclick=writeScript;
+function wav(n){const v=new DataView(new ArrayBuffer(44)),s=(o,x)=>[...x].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  s(0,'RIFF');v.setUint32(4,36+n,true);s(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,24e3,true);v.setUint32(28,48e3,true);v.setUint16(32,2,true);v.setUint16(34,16,true);s(36,'data');v.setUint32(40,n,true);return v.buffer}
+async function aiVoice(text){
+  const j=await gem(TTS_MODEL,{contents:[{parts:[{text}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:$('vname').value}}}}});
+  const p=((j.candidates&&j.candidates[0].content.parts)||[]).find(x=>x.inlineData||x.inline_data),d=p&&(p.inlineData||p.inline_data);
+  if(!d)throw new Error('The voice service returned no audio.');
+  const bin=Uint8Array.from(atob(d.data),c=>c.charCodeAt(0)),m=d.mimeType||d.mime_type||'';
+  return /wav/i.test(m)?new Blob([bin],{type:'audio/wav'}):new Blob([wav(bin.length),bin],{type:'audio/wav'});
+}
 /* ---- create ---- */
 const audioEl=f=>new Promise((ok,no)=>{const a=new Audio(URL.createObjectURL(f));a.onloadedmetadata=()=>ok(a);a.onerror=()=>no(new Error('Could not read that audio file'))});
 async function make(){
@@ -59,7 +101,8 @@ async function make(){
   let wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
   const ac=new(window.AudioContext||window.webkitAudioContext)(),dest=ac.createMediaStreamDestination();
   try{
-    const vf=$('voice').files[0],mf=$('music').files[0];
+    let vf=$('voice').files[0];const mf=$('music').files[0];
+    if(!vf&&$('useai').checked){$('msg').textContent='Creating the AI voiceover…';vf=await aiVoice(ws.join(' '))}
     const voice=vf?await audioEl(vf):null,music=mf?await audioEl(mf):null;
     if(voice)ac.createMediaElementSource(voice).connect(dest);
     if(music){music.loop=true;const g=ac.createGain();g.gain.value=voice?.12:.5;ac.createMediaElementSource(music).connect(g).connect(dest)}

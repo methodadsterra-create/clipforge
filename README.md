@@ -21,6 +21,16 @@ clipforge/
   LICENSE         MIT
 ```
 
+## AI helper (optional, free)
+
+Paste your own free Gemini API key (aistudio.google.com/apikey). It is stored only in your browser. Then:
+
+- **Reference video to fresh script:** pick a short clip (up to 18 MB). Gemini watches it, explains why it works, and writes a new original script.
+- **Topic to script:** no video needed, just type a topic.
+- **AI voiceover:** tick the box and the script is read aloud with a Gemini voice.
+
+Model names are constants at the top of the AI section in `app.js` (`TEXT_MODEL`, `TTS_MODEL`) if Google renames them. Only the reference video and text are sent to Google, with your own key.
+
 ## How it works
 
 - You write a script. Optionally upload a voiceover (made with any free text-to-speech tool), a background photo or clip, and music.
