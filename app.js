@@ -38,6 +38,7 @@ function frame(t,ws,ends){
   ctx.font=`800 ${sz}px system-ui,sans-serif`;ctx.textBaseline='middle';ctx.textAlign='left';ctx.lineJoin='round';
   const wd=ch.map(w=>ctx.measureText(w).width),tot=wd.reduce((a,b)=>a+b+gap,-gap);
   const lines=tot>W*.9?ch.map((_,k)=>[k]):[ch.map((_,k)=>k)],lh=sz*1.3,y0=H*.68-(lines.length-1)*lh/2;
+  if(RTL.includes($('lang').value))lines.forEach(l=>l.reverse());
   lines.forEach((ln,li)=>{
     let x=(W-ln.reduce((a,k)=>a+wd[k]+gap,-gap))/2;const y=y0+li*lh;
     ln.forEach(k=>{
@@ -67,10 +68,10 @@ async function writeScript(){
   const f=$('ref').files[0],topic=$('topic').value.trim(),link=$('link').value.trim(),n=+$('parts').value,w=$('why'),L=$('partlist');
   if(!f&&!topic&&!link){w.textContent='Paste a TikTok link, add a reference video, or type a topic first.';return}
   if(f&&f.size>18*1048576){w.textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
-  $('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
+  let ok=false;$('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
   try{
-    let cap='';
-    if(link){
+    let cap=CAP;
+    if(link&&!cap){
       try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));const o=await r.json();cap=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ')}catch(e){}
       if(!cap&&!f&&!topic){w.textContent="Could not read that link from the browser. Paste the video's caption or a short description in the topic box, then try again.";$('write').disabled=false;return}
     }
@@ -88,9 +89,9 @@ async function writeScript(){
     ps.forEach((p,i)=>{const d=document.createElement('div'),b=document.createElement('button');b.className='alt';b.textContent=(ps.length>1?`Part ${i+1}: `:'')+(p.title||'Use this script');b.onclick=()=>{$('script').value=p.script.trim();$('script').scrollIntoView({behavior:'smooth'})};d.append(b);L.append(d)});
     $('script').value=ps[0].script.trim();
     w.textContent=(o.why_it_works?'Why it works: '+o.why_it_works+' ':'')+(ps.length>1?'Tap a part to load it, make its video, then load the next part.':'Script ready below. Edit it freely.');
-    if(ps.length<2)$('script').scrollIntoView({behavior:'smooth'});
+    ok=true;
   }catch(e){w.textContent='Something went wrong: '+e.message}
-  $('write').disabled=false;
+  $('write').disabled=false;return ok;
 }
 $('write').onclick=writeScript;
 function wav(n){const v=new DataView(new ArrayBuffer(44)),s=(o,x)=>[...x].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
@@ -102,13 +103,36 @@ async function aiVoice(text){
   const bin=Uint8Array.from(atob(d.data),c=>c.charCodeAt(0)),m=d.mimeType||d.mime_type||'';
   return /wav/i.test(m)?new Blob([bin],{type:'audio/wav'}):new Blob([wav(bin.length),bin],{type:'audio/wav'});
 }
+/* ---- simple flow: link -> confirm -> video ---- */
+let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
+async function check(){
+  const link=$('link').value.trim(),h=$('hint');
+  if(!/^https?:\/\/([\w-]+\.)?tiktok\.com\//i.test(link)){h.textContent='Paste a full TikTok video link, starting with https://';return}
+  if(!$('key').value.trim()){$('more').open=true;$('key').focus();h.textContent='First paste your free Gemini key under More options.';return}
+  $('check').disabled=true;h.textContent='Checking the video…';CAP='';
+  let o=null;try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){}
+  $('check').disabled=false;
+  const th=$('thumb');th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
+  if(o&&o.title!==undefined){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=(o.author_name?o.author_name+': ':'')+(o.title||'(no caption)');$('manualbox').hidden=true}
+  else{$('cap').textContent="We couldn't read this link here. Describe the video below and we'll use that.";$('manualbox').hidden=false}
+  $('start').hidden=true;$('confirm').hidden=false;h.textContent='';
+}
+async function go(){
+  const m=$('msg');$('confirm').hidden=true;$('work').hidden=false;$('prog').hidden=true;m.textContent='Writing a fresh script…';
+  if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('start').hidden=false;return}
+  m.textContent='Creating the voiceover and video…';
+  const done=await make();$('start').hidden=false;
+  if(done){$('work').hidden=true;$('hint').textContent='Your video is ready. Download it below before it expires.';$('list').scrollIntoView({behavior:'smooth'})}
+}
+$('check').onclick=check;$('go').onclick=go;$('link').oninput=()=>{CAP=''};
+$('no').onclick=()=>{$('confirm').hidden=true;$('start').hidden=false;CAP=''};
 /* ---- create ---- */
 const audioEl=f=>new Promise((ok,no)=>{const a=new Audio(URL.createObjectURL(f));a.onloadedmetadata=()=>ok(a);a.onerror=()=>no(new Error('Could not read that audio file'))});
 async function make(){
   const ws=words();if(!ws.length){$('msg').textContent='Write a script first.';return}
   if(!window.MediaRecorder){$('msg').textContent='This browser cannot record video. Try Chrome.';return}
-  $('make').disabled=true;$('prog').hidden=false;$('msg').textContent='Making your video. Keep the screen on…';
-  let wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
+  $('make').disabled=true;$('work').hidden=false;$('prog').hidden=false;$('msg').textContent='Making your video. Keep the screen on…';
+  let ok=false,wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
   const ac=new(window.AudioContext||window.webkitAudioContext)(),dest=ac.createMediaStreamDestination();
   try{
     let vf=$('voice').files[0];const mf=$('music').files[0];
@@ -131,9 +155,9 @@ async function make(){
     const type=(mt.split(';')[0]||'video/webm'),id=String(Date.now());
     await put({id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})});
     $('msg').textContent='Done. Download your video below before it expires.';
-    await render();
+    await render();ok=true;
   }catch(e){$('msg').textContent='Something went wrong: '+e.message}
-  ac.close();wl&&wl.release();$('make').disabled=false;$('prog').hidden=true;idle();
+  ac.close();wl&&wl.release();$('make').disabled=false;$('prog').hidden=true;idle();return ok;
 }
 $('make').onclick=make;
 $('wpm').oninput=e=>$('wpmv').textContent=e.target.value;

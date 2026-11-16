@@ -21,7 +21,11 @@ clipforge/
   LICENSE         MIT
 ```
 
-## AI helper (optional, free)
+## How to use
+
+Paste a TikTok link, check it is the right video, pick a language and tap create. ClipForge reads the caption, writes a fresh script, adds an AI voiceover and subtitles, and makes the video. Download it within 24 hours.
+
+## AI helper (needs a free key)
 
 Paste your own free Gemini API key (aistudio.google.com/apikey). It is stored only in your browser. Then:
 

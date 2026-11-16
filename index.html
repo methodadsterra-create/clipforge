@@ -11,41 +11,52 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><div class="brand"><img src="icon.svg" width="44" height="44" alt=""><h1>ClipForge</h1></div><p>Free, open-source short videos. Runs on your phone, no account.</p></header>
+<header><div class="brand"><img src="icon.svg" width="44" height="44" alt=""><h1>ClipForge</h1></div><p>Paste a TikTok link. Get a fresh video, free.</p></header>
 <div class="warn">Your videos are stored only on this phone, never on a server. Anything you don't download within 24 hours is permanently deleted and can't be recovered.</div>
 <main>
-<section class="card">
-<h2>AI helper <small style="display:inline">(optional, free)</small></h2>
+<section class="card" id="start">
+<label for="link">TikTok video link</label>
+<input type="url" id="link" placeholder="Paste the link here">
+<label for="lang">Video language</label>
+<select id="lang"><option>English</option><option>French</option><option>Spanish</option><option>Portuguese</option><option>German</option><option>Italian</option><option>Arabic</option><option>Hindi</option><option>Indonesian</option><option>Swahili</option><option>Turkish</option><option>Russian</option><option>Dutch</option><option>Polish</option><option>Vietnamese</option><option>Bengali</option><option>Japanese</option><option>Korean</option></select>
+<button id="check">Check video</button>
+<small id="hint">Free. The caption and script are sent to Google's Gemini with your own free key (add it under More options). Everything else stays on this phone.</small>
+</section>
+<section class="card" id="confirm" hidden>
+<h2>Is this the video?</h2>
+<img id="thumb" alt="" hidden>
+<p id="cap"></p>
+<div id="manualbox" hidden><label for="topic">Describe the video in one sentence</label><input type="text" id="topic" placeholder="e.g. a giant dog that weighs 90 kg"></div>
+<button id="go">Yes, create my video</button>
+<button class="alt" id="no">No, try another link</button>
+</section>
+<section class="card" id="work" hidden>
+<p id="msg"></p>
+<progress id="prog" max="1" value="0" hidden></progress>
+<canvas id="cv" width="720" height="1280"></canvas>
+</section>
+<section class="card"><h2>Your videos</h2><div id="list"></div></section>
+<details class="card" id="more"><summary>More options</summary>
 <label for="key">Your free Gemini API key</label>
 <input type="password" id="key" placeholder="Paste key here" autocomplete="off">
 <small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone.</small>
-<label for="link">TikTok link (optional)</label>
-<input type="url" id="link" placeholder="Paste a TikTok video link">
-<small>ClipForge reads the video's caption and writes fresh ideas. It does not download the video.</small>
-<label for="ref">Reference video (optional)</label>
+<label for="ref">Reference video file (optional)</label>
 <input type="file" id="ref" accept="video/*">
-<small>A short clip that performed well, up to 18 MB. Only use videos you own or have permission to use.</small>
-<label for="topic">Topic, niche or caption (optional)</label>
-<input type="text" id="topic" placeholder="e.g. strange facts about the ocean">
+<small>Up to 18 MB. Only use videos you own or have permission to use.</small>
 <div class="row">
-<div><label for="lang">Language</label><input type="text" id="lang" value="English"></div>
 <div><label for="parts">Parts</label><select id="parts"><option value="1">1 video</option><option value="2">2 parts</option><option value="3">3 parts</option><option value="5">5 parts</option></select></div>
 <div><label for="len">Length</label><select id="len"><option value="75">30 s</option><option value="110" selected>45 s</option><option value="165">1 min 06</option></select></div>
 </div>
-<button id="write">Get fresh video ideas</button>
+<button class="alt" id="write">Write script only</button>
 <small id="why"></small>
 <div id="partlist"></div>
-<small>When you use AI, your reference video and text are sent to Google's Gemini API with your own key. Everything else stays on this phone.</small>
-</section>
-<section class="card">
-<label for="script">Script</label>
-<textarea id="script" rows="6" placeholder="Paste or type your script here"></textarea>
-<label for="voice">Voiceover audio (optional)</label>
+<label for="script">Script (edit freely)</label>
+<textarea id="script" rows="6" placeholder="Your script appears here"></textarea>
+<label for="voice">Your own voiceover (optional)</label>
 <input type="file" id="voice" accept="audio/*">
-<small>Make it with any free text-to-speech tool, then upload it. Without it, the video is silent and timed by reading speed.</small>
-<label><input type="checkbox" id="useai"> Make the voiceover with AI (needs the key above)</label>
+<label><input type="checkbox" id="useai" checked> Make the voiceover with AI</label>
 <select id="vname"><option>Kore</option><option>Puck</option><option>Charon</option><option>Aoede</option><option>Fenrir</option><option>Zephyr</option></select>
-<label for="wpm">Reading speed: <b id="wpmv">150</b> words per minute</label>
+<label for="wpm">Reading speed without voiceover: <b id="wpmv">150</b> words per minute</label>
 <input type="range" id="wpm" min="80" max="260" value="150">
 <div class="row">
 <div><label for="fmt">Format</label><select id="fmt"><option>9:16</option><option>1:1</option><option>16:9</option></select></div>
@@ -57,12 +68,8 @@
 <small>Or choose your own photo or video clip.</small>
 <label for="music">Background music (optional)</label>
 <input type="file" id="music" accept="audio/*">
-<button id="make">Create video</button>
-<progress id="prog" max="1" value="0" hidden></progress>
-<small id="msg">Keep this tab open and the screen on while the video is made.</small>
-</section>
-<section class="card"><canvas id="cv" width="720" height="1280"></canvas></section>
-<section class="card"><h2>Your videos</h2><div id="list"></div></section>
+<button id="make">Create video from this script</button>
+</details>
 </main>
 <footer>MIT licensed · <a href="https://github.com/useclipforge/useclipforge.github.io">Source on GitHub</a></footer>
 <script src="app.js"></script>
