@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#12141c">
+<title>ClipForge · Free short-video maker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="alternate icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<header><div class="brand"><img src="icon.svg" width="44" height="44" alt=""><h1>ClipForge</h1></div><p>Free, open-source short videos. Runs on your phone, no account.</p></header>
+<div class="warn">Your videos are stored only on this phone, never on a server. Anything you don't download within 24 hours is permanently deleted and can't be recovered.</div>
+<main>
+<section class="card">
+<label for="script">Script</label>
+<textarea id="script" rows="6" placeholder="Paste or type your script here"></textarea>
+<label for="voice">Voiceover audio (optional)</label>
+<input type="file" id="voice" accept="audio/*">
+<small>Make it with any free text-to-speech tool, then upload it. Without it, the video is silent and timed by reading speed.</small>
+<label for="wpm">Reading speed: <b id="wpmv">150</b> words per minute</label>
+<input type="range" id="wpm" min="80" max="260" value="150">
+<div class="row">
+<div><label for="fmt">Format</label><select id="fmt"><option>9:16</option><option>1:1</option><option>16:9</option></select></div>
+<div><label for="sub">Subtitles</label><select id="sub"><option value="karaoke">Yellow highlight</option><option value="box">Colour box</option><option value="plain">Plain white</option></select></div>
+</div>
+<label for="bg">Background</label>
+<select id="bg"><option value="night">Night</option><option value="sunset">Sunset</option><option value="ocean">Ocean</option><option value="forest">Forest</option><option value="gold">Gold</option><option value="dark">Charcoal</option></select>
+<input type="file" id="bgfile" accept="image/*,video/*">
+<small>Or choose your own photo or video clip.</small>
+<label for="music">Background music (optional)</label>
+<input type="file" id="music" accept="audio/*">
+<button id="make">Create video</button>
+<progress id="prog" max="1" value="0" hidden></progress>
+<small id="msg">Keep this tab open and the screen on while the video is made.</small>
+</section>
+<section class="card"><canvas id="cv" width="720" height="1280"></canvas></section>
+<section class="card"><h2>Your videos</h2><div id="list"></div></section>
+</main>
+<footer>MIT licensed · <a href="https://github.com/methodadsterra-create/clipforge">Source on GitHub</a></footer>
+<script src="app.js"></script>
+</body></html>
