@@ -25,6 +25,7 @@ clipforge/
 
 Paste your own free Gemini API key (aistudio.google.com/apikey). It is stored only in your browser. Then:
 
+- **TikTok link to fresh ideas:** paste a video link. ClipForge reads its public caption (TikTok oEmbed) and writes new original scripts, as one video or a series of 2, 3 or 5 parts. If the browser cannot read the link, paste the caption in the topic box instead.
 - **Reference video to fresh script:** pick a short clip (up to 18 MB). Gemini watches it, explains why it works, and writes a new original script.
 - **Topic to script:** no video needed, just type a topic.
 - **AI voiceover:** tick the box and the script is read aloud with a Gemini voice.

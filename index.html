@@ -19,17 +19,22 @@
 <label for="key">Your free Gemini API key</label>
 <input type="password" id="key" placeholder="Paste key here" autocomplete="off">
 <small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone.</small>
+<label for="link">TikTok link (optional)</label>
+<input type="url" id="link" placeholder="Paste a TikTok video link">
+<small>ClipForge reads the video's caption and writes fresh ideas. It does not download the video.</small>
 <label for="ref">Reference video (optional)</label>
 <input type="file" id="ref" accept="video/*">
 <small>A short clip that performed well, up to 18 MB. Only use videos you own or have permission to use.</small>
-<label for="topic">Topic or niche (optional)</label>
+<label for="topic">Topic, niche or caption (optional)</label>
 <input type="text" id="topic" placeholder="e.g. strange facts about the ocean">
 <div class="row">
 <div><label for="lang">Language</label><input type="text" id="lang" value="English"></div>
+<div><label for="parts">Parts</label><select id="parts"><option value="1">1 video</option><option value="2">2 parts</option><option value="3">3 parts</option><option value="5">5 parts</option></select></div>
 <div><label for="len">Length</label><select id="len"><option value="75">30 s</option><option value="110" selected>45 s</option><option value="165">1 min 06</option></select></div>
 </div>
-<button id="write">Write a fresh script</button>
+<button id="write">Get fresh video ideas</button>
 <small id="why"></small>
+<div id="partlist"></div>
 <small>When you use AI, your reference video and text are sent to Google's Gemini API with your own key. Everything else stays on this phone.</small>
 </section>
 <section class="card">
@@ -59,6 +64,6 @@
 <section class="card"><canvas id="cv" width="720" height="1280"></canvas></section>
 <section class="card"><h2>Your videos</h2><div id="list"></div></section>
 </main>
-<footer>MIT licensed · <a href="https://github.com/methodadsterra-create/clipforge">Source on GitHub</a></footer>
+<footer>MIT licensed · <a href="https://github.com/useclipforge/useclipforge.github.io">Source on GitHub</a></footer>
 <script src="app.js"></script>
 </body></html>

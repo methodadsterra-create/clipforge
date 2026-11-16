@@ -64,22 +64,32 @@ async function gem(model,body){
 }
 const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
 async function writeScript(){
-  const f=$('ref').files[0],topic=$('topic').value.trim();
-  if(!f&&!topic){$('why').textContent='Add a reference video or a topic first.';return}
-  if(f&&f.size>18*1048576){$('why').textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
-  $('write').disabled=true;$('why').textContent='Working on it, this can take up to a minute…';
+  const f=$('ref').files[0],topic=$('topic').value.trim(),link=$('link').value.trim(),n=+$('parts').value,w=$('why'),L=$('partlist');
+  if(!f&&!topic&&!link){w.textContent='Paste a TikTok link, add a reference video, or type a topic first.';return}
+  if(f&&f.size>18*1048576){w.textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
+  $('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
   try{
-    const rules=`Language: ${$('lang').value||'English'}. Length: about ${$('len').value} words. Start with a hook in the first sentence, use short punchy sentences, build curiosity, and end with a strong closing line. Return JSON only: {"why_it_works":"2 or 3 sentences","script":"spoken words only, no headings, no stage directions"}.`;
+    let cap='';
+    if(link){
+      try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));const o=await r.json();cap=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ')}catch(e){}
+      if(!cap&&!f&&!topic){w.textContent="Could not read that link from the browser. Paste the video's caption or a short description in the topic box, then try again.";$('write').disabled=false;return}
+    }
+    const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ');
+    const rules=`Language: ${$('lang').value||'English'}. Write exactly ${n} part${n>1?'s':''}, each about ${$('len').value} words. ${n>1?'This is a series: every part opens with its own hook, stands alone, and ends with a cliffhanger that makes people want the next part. The last part ends with a strong closing line and a call to follow.':'Open with a hook in the first sentence and end with a strong closing line and a call to action.'} Use short punchy sentences and build curiosity. Return JSON only: {"why_it_works":"2 or 3 sentences on what makes the source idea work","parts":[{"title":"short title","script":"spoken words only, no headings, no stage directions"}]}.`;
     const parts=[];
     if(f){parts.push({inline_data:{mime_type:f.type||'video/mp4',data:await b64(f)}});
-      parts.push({text:`Watch this reference video and work out why it holds attention: hook, pacing, structure, ending. Then write a completely new, original voiceover script on the same general theme with a fresh angle${topic?' about: '+topic:''}. Never copy or closely paraphrase wording from the video. ${rules}`})}
-    else parts.push({text:`Write an original short-video voiceover script about: ${topic}. In why_it_works, explain the hook you chose. ${rules}`});
+      parts.push({text:`Watch this reference video and work out why it holds attention: hook, pacing, structure, ending. ${ctx} Then write completely new, original voiceover scripts on the same general theme with a fresh angle. Never copy or closely paraphrase wording from the video. ${rules}`})}
+    else parts.push({text:`Create fresh, original short-video voiceover scripts inspired by this. ${ctx} Find a new angle. Never copy or closely paraphrase the wording or story beats of the source. ${rules}`});
     const j=await gem(TEXT_MODEL,{contents:[{parts}],generationConfig:{responseMimeType:'application/json'}});
     const raw=(j.candidates&&j.candidates[0].content.parts.map(x=>x.text||'').join(''))||'';
-    let o;try{o=JSON.parse(raw)}catch(e){o={script:raw,why_it_works:''}}
-    $('script').value=(o.script||'').trim();$('why').textContent=o.why_it_works?'Why it works: '+o.why_it_works:'Script ready below. Edit it freely.';
-    $('script').scrollIntoView({behavior:'smooth'});
-  }catch(e){$('why').textContent='Something went wrong: '+e.message}
+    let o;try{o=JSON.parse(raw)}catch(e){o={parts:[{title:'Script',script:raw}]}}
+    const ps=(o.parts||(o.script?[{title:'Script',script:o.script}]:[])).filter(p=>p&&p.script);
+    if(!ps.length)throw new Error('The AI returned no script. Try again.');
+    ps.forEach((p,i)=>{const d=document.createElement('div'),b=document.createElement('button');b.className='alt';b.textContent=(ps.length>1?`Part ${i+1}: `:'')+(p.title||'Use this script');b.onclick=()=>{$('script').value=p.script.trim();$('script').scrollIntoView({behavior:'smooth'})};d.append(b);L.append(d)});
+    $('script').value=ps[0].script.trim();
+    w.textContent=(o.why_it_works?'Why it works: '+o.why_it_works+' ':'')+(ps.length>1?'Tap a part to load it, make its video, then load the next part.':'Script ready below. Edit it freely.');
+    if(ps.length<2)$('script').scrollIntoView({behavior:'smooth'});
+  }catch(e){w.textContent='Something went wrong: '+e.message}
   $('write').disabled=false;
 }
 $('write').onclick=writeScript;
