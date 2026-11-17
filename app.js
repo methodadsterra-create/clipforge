@@ -105,33 +105,46 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
+let seq=0,tmr;
 async function check(){
-  const link=$('link').value.trim(),h=$('hint');
+  const link=$('link').value.trim(),h=$('hint'),my=++seq;CAP='';$('confirm').hidden=true;
+  if(!link){h.textContent='';return}
   if(!/^https?:\/\/([\w-]+\.)?tiktok\.com\//i.test(link)){h.textContent='Paste a full TikTok video link, starting with https://';return}
-  if(!$('key').value.trim()){$('more').open=true;$('key').focus();h.textContent='First paste your free Gemini key under More options.';return}
-  $('check').disabled=true;h.textContent='Checking the video…';CAP='';
+  h.textContent='Checking the video…';
   let o=null;try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){}
-  $('check').disabled=false;
-  const th=$('thumb');th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
-  if(o&&o.title!==undefined){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=(o.author_name?o.author_name+': ':'')+(o.title||'(no caption)');$('manualbox').hidden=true}
-  else{$('cap').textContent="We couldn't read this link here. Describe the video below and we'll use that.";$('manualbox').hidden=false}
-  $('start').hidden=true;$('confirm').hidden=false;h.textContent='';
+  if(my!==seq)return;
+  h.textContent='';
+  const th=$('thumb');th.referrerPolicy='no-referrer';th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
+  if(o&&o.title!==undefined){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'(no caption)';$('by').textContent=o.author_name||'';$('manualbox').hidden=true}
+  else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
+  $('cmsg').textContent='';$('confirm').hidden=false;
+}
+function showDone(r){
+  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.';
+  $('out').src=URL.createObjectURL(r.blob);
+  $('dl').onclick=()=>{const x=document.createElement('a');x.href=$('out').src;x.download=r.name;x.click();$('dl').textContent='Downloaded ✓'};
+  $('dl').textContent='Download video';$('work').scrollIntoView({behavior:'smooth'});
 }
 async function go(){
-  const m=$('msg');$('confirm').hidden=true;$('work').hidden=false;$('prog').hidden=true;m.textContent='Writing a fresh script…';
-  if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('start').hidden=false;return}
+  const m=$('msg');
+  if(!$('key').value.trim()){$('more').open=true;$('key').focus();$('cmsg').textContent='First paste your free Gemini key under More options, then tap again.';return}
+  $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=true;
+  m.textContent='Writing a fresh script…';$('work').scrollIntoView({behavior:'smooth'});
+  if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}
   m.textContent='Creating the voiceover and video…';
-  const done=await make();$('start').hidden=false;
-  if(done){$('work').hidden=true;$('hint').textContent='Your video is ready. Download it below before it expires.';$('list').scrollIntoView({behavior:'smooth'})}
+  const r=await make();
+  if(r)showDone(r);else $('confirm').hidden=false;
 }
-$('check').onclick=check;$('go').onclick=go;$('link').oninput=()=>{CAP=''};
-$('no').onclick=()=>{$('confirm').hidden=true;$('start').hidden=false;CAP=''};
+$('go').onclick=go;
+$('link').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(check,400)};
+$('no').onclick=()=>{seq++;$('confirm').hidden=true;$('link').value='';CAP='';$('link').focus()};
+$('again').onclick=()=>{$('work').hidden=true;$('done').hidden=true;$('link').value='';$('confirm').hidden=true;CAP='';scrollTo({top:0,behavior:'smooth'})};
 /* ---- create ---- */
 const audioEl=f=>new Promise((ok,no)=>{const a=new Audio(URL.createObjectURL(f));a.onloadedmetadata=()=>ok(a);a.onerror=()=>no(new Error('Could not read that audio file'))});
 async function make(){
   const ws=words();if(!ws.length){$('msg').textContent='Write a script first.';return}
   if(!window.MediaRecorder){$('msg').textContent='This browser cannot record video. Try Chrome.';return}
-  $('make').disabled=true;$('work').hidden=false;$('prog').hidden=false;$('msg').textContent='Making your video. Keep the screen on…';
+  $('make').disabled=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=false;$('msg').textContent='Making your video. Keep the screen on…';
   let ok=false,wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
   const ac=new(window.AudioContext||window.webkitAudioContext)(),dest=ac.createMediaStreamDestination();
   try{
@@ -153,13 +166,13 @@ async function make(){
     rec.stop();await done;
     voice&&voice.pause();music&&music.pause();
     const type=(mt.split(';')[0]||'video/webm'),id=String(Date.now());
-    await put({id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})});
+    const vrec={id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})};await put(vrec);
     $('msg').textContent='Done. Download your video below before it expires.';
-    await render();ok=true;
+    await render();ok=vrec;
   }catch(e){$('msg').textContent='Something went wrong: '+e.message}
   ac.close();wl&&wl.release();$('make').disabled=false;$('prog').hidden=true;idle();return ok;
 }
-$('make').onclick=make;
+$('make').onclick=async()=>{const r=await make();if(r)showDone(r)};
 $('wpm').oninput=e=>$('wpmv').textContent=e.target.value;
 ['fmt','sub','bg'].forEach(k=>$(k).onchange=idle);
 $('bgfile').onchange=e=>{const f=e.target.files[0];if(!f){bgEl=null;return idle()}const u=URL.createObjectURL(f);

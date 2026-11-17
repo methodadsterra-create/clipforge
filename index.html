@@ -11,7 +11,11 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head><body>
-<header><div class="brand"><img src="icon.svg" width="44" height="44" alt=""><h1>ClipForge</h1></div><p>Paste a TikTok link. Get a fresh video, free.</p></header>
+<header><div class="brand"><img src="icon.svg" width="44" height="44" alt=""><h1>ClipForge</h1></div></header>
+<section class="hero"><span class="pill"><b class="badge">NEW</b> Paste a link, get a fresh video</span>
+<h2>Fresh TikTok videos, <em>without editing them yourself.</em></h2>
+<p>Paste a TikTok link. ClipForge reads what the video is about, writes a brand-new script, adds a voiceover and subtitles, and gives you a 9:16 video ready to post.</p>
+<ul class="ticks"><li>1 link = 1 video</li><li>TikTok format 9:16</li><li>Voiceover in many languages</li><li>Free and open source</li></ul></section>
 <div class="warn">Your videos are stored only on this phone, never on a server. Anything you don't download within 24 hours is permanently deleted and can't be recovered.</div>
 <main>
 <section class="card" id="start">
@@ -19,21 +23,26 @@
 <input type="url" id="link" placeholder="Paste the link here">
 <label for="lang">Video language</label>
 <select id="lang"><option>English</option><option>French</option><option>Spanish</option><option>Portuguese</option><option>German</option><option>Italian</option><option>Arabic</option><option>Hindi</option><option>Indonesian</option><option>Swahili</option><option>Turkish</option><option>Russian</option><option>Dutch</option><option>Polish</option><option>Vietnamese</option><option>Bengali</option><option>Japanese</option><option>Korean</option></select>
-<button id="check">Check video</button>
-<small id="hint">Free. The caption and script are sent to Google's Gemini with your own free key (add it under More options). Everything else stays on this phone.</small>
+<small id="hint">Paste your link and we will show the video so you can confirm it. Free. The caption and script are sent to Google's Gemini with your own free key (add it under More options). Everything else stays on this phone.</small>
 </section>
 <section class="card" id="confirm" hidden>
-<h2>Is this the video?</h2>
-<img id="thumb" alt="" hidden>
-<p id="cap"></p>
+<p class="eyebrow">Is this the video?</p>
+<div class="vid"><img id="thumb" alt="" hidden><div><p id="cap"></p><small id="by"></small></div></div>
 <div id="manualbox" hidden><label for="topic">Describe the video in one sentence</label><input type="text" id="topic" placeholder="e.g. a giant dog that weighs 90 kg"></div>
 <button id="go">Yes, create my video</button>
 <button class="alt" id="no">No, try another link</button>
+<small id="cmsg"></small>
 </section>
 <section class="card" id="work" hidden>
 <p id="msg"></p>
 <progress id="prog" max="1" value="0" hidden></progress>
 <canvas id="cv" width="720" height="1280"></canvas>
+<div id="done" hidden>
+<video id="out" controls playsinline></video>
+<button id="dl">Download video</button>
+<button class="alt" id="again">Make another video</button>
+<small>Download it now. Videos you don't download are deleted after 24 hours.</small>
+</div>
 </section>
 <section class="card"><h2>Your videos</h2><div id="list"></div></section>
 <details class="card" id="more"><summary>More options</summary>
