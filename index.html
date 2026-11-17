@@ -23,7 +23,7 @@
 <input type="url" id="link" placeholder="Paste the link here">
 <label for="lang">Video language</label>
 <select id="lang"><option>English</option><option>French</option><option>Spanish</option><option>Portuguese</option><option>German</option><option>Italian</option><option>Arabic</option><option>Hindi</option><option>Indonesian</option><option>Swahili</option><option>Turkish</option><option>Russian</option><option>Dutch</option><option>Polish</option><option>Vietnamese</option><option>Bengali</option><option>Japanese</option><option>Korean</option></select>
-<small id="hint">Paste your link and we will show the video so you can confirm it. Free. The caption and script are sent to Google's Gemini to write your video. Everything else stays on this phone.</small>
+<small id="hint">Paste your link and we will show the video so you can confirm it. Free. The caption and script are sent to Google's Gemini to write your video. Everything else stays on this phone. <a href="#" id="keylink">How to get a free key</a></small>
 </section>
 <section class="card" id="confirm" hidden>
 <p class="eyebrow">Is this the video?</p>
@@ -46,9 +46,24 @@
 </section>
 <section class="card"><h2>Your videos</h2><div id="list"></div></section>
 <details class="card" id="more"><summary>More options</summary>
-<label for="key">Your own Gemini API key (optional)</label>
+<details id="keyhelp"><summary>How to get your free key (2 minutes)</summary>
+<p>An API key is like a password that lets ClipForge ask Google's Gemini AI to write your script and speak it. Google gives every person a free daily allowance, so it costs you nothing.</p>
+<ol>
+<li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and sign in with your Google account.</li>
+<li>Tap <b>Create API key</b>. If it asks, choose <b>Create API key in new project</b>.</li>
+<li>Tap the copy icon next to your new key.</li>
+<li>Come back here, paste it in the box below, and you are ready. It is saved only on this phone.</li>
+</ol>
+<p><b>Good to know</b></p>
+<ul>
+<li>Never share your key or post it online. Anyone with it can use your allowance. If it leaks, delete it on the same page and make a new one.</li>
+<li>It is free within Google's daily limits. Do not turn on billing unless you want to pay for more.</li>
+<li>On Google's free tier, the text you send may be used to improve Google's products, so keep private details out of your videos.</li>
+<li>If you see a "limit reached" message, wait until tomorrow or make another key.</li>
+</ul></details>
+<label for="key">Your Gemini API key</label>
 <input type="password" id="key" placeholder="Paste key here" autocomplete="off">
-<small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone. Add one if the shared limit runs out.</small>
+<small>Saved only on this phone. Not sure how to get one? Open the guide above.</small>
 <label for="ref">Reference video file (optional)</label>
 <input type="file" id="ref" accept="video/*">
 <small>Up to 18 MB. Only use videos you own or have permission to use.</small>

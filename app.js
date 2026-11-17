@@ -60,6 +60,7 @@ async function gem(model,body){
   let r;try{r=await fetch(k?API+model+':generateContent':P.replace(/\/$/,'')+'/'+model,{method:'POST',headers:k?{'content-type':'application/json','x-goog-api-key':k}:{'content-type':'application/json'},body:JSON.stringify(body)})}
   catch(e){throw new Error('Could not reach Google. Check your connection.')}
   const j=await r.json().catch(()=>({}));
+  if(r.status===429)throw new Error('The free limit is used up for now. Try again later, or add your own free key (see How to get your free key under More options).');
   if(!r.ok)throw new Error(j.error&&j.error.message||'Request failed ('+r.status+')');
   return j;
 }
@@ -129,7 +130,7 @@ function showDone(r){
 }
 async function go(){
   const m=$('msg');
-  if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('key').focus();$('cmsg').textContent='First paste your free Gemini key under More options, then tap again.';return}
+  if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=true;
   m.textContent='Writing a fresh script…';$('work').scrollIntoView({behavior:'smooth'});
   if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}
@@ -138,6 +139,7 @@ async function go(){
   if(r)showDone(r);else $('confirm').hidden=false;
 }
 $('go').onclick=go;
+$('keylink').onclick=e=>{e.preventDefault();$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'})};
 $('link').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(check,400)};
 $('no').onclick=()=>{seq++;$('confirm').hidden=true;$('link').value='';CAP='';$('link').focus()};
 $('again').onclick=()=>{$('work').hidden=true;$('done').hidden=true;$('link').value='';$('confirm').hidden=true;CAP='';scrollTo({top:0,behavior:'smooth'})};
