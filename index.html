@@ -23,7 +23,7 @@
 <input type="url" id="link" placeholder="Paste the link here">
 <label for="lang">Video language</label>
 <select id="lang"><option>English</option><option>French</option><option>Spanish</option><option>Portuguese</option><option>German</option><option>Italian</option><option>Arabic</option><option>Hindi</option><option>Indonesian</option><option>Swahili</option><option>Turkish</option><option>Russian</option><option>Dutch</option><option>Polish</option><option>Vietnamese</option><option>Bengali</option><option>Japanese</option><option>Korean</option></select>
-<small id="hint">Paste your link and we will show the video so you can confirm it. Free. The caption and script are sent to Google's Gemini with your own free key (add it under More options). Everything else stays on this phone.</small>
+<small id="hint">Paste your link and we will show the video so you can confirm it. Free. The caption and script are sent to Google's Gemini to write your video. Everything else stays on this phone.</small>
 </section>
 <section class="card" id="confirm" hidden>
 <p class="eyebrow">Is this the video?</p>
@@ -46,9 +46,9 @@
 </section>
 <section class="card"><h2>Your videos</h2><div id="list"></div></section>
 <details class="card" id="more"><summary>More options</summary>
-<label for="key">Your free Gemini API key</label>
+<label for="key">Your own Gemini API key (optional)</label>
 <input type="password" id="key" placeholder="Paste key here" autocomplete="off">
-<small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone.</small>
+<small>Get one free at <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>. It is saved only on this phone. Add one if the shared limit runs out.</small>
 <label for="ref">Reference video file (optional)</label>
 <input type="file" id="ref" accept="video/*">
 <small>Up to 18 MB. Only use videos you own or have permission to use.</small>
@@ -81,5 +81,6 @@
 </details>
 </main>
 <footer>MIT licensed · <a href="https://github.com/useclipforge/useclipforge.github.io">Source on GitHub</a></footer>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body></html>

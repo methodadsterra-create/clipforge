@@ -56,8 +56,8 @@ const TEXT_MODEL='gemini-3.8-flash',TTS_MODEL='gemini-3.8-flash-lite-tts',API='h
 try{$('key').value=localStorage.getItem('cf_key')||''}catch(e){}
 $('key').oninput=()=>{try{localStorage.setItem('cf_key',$('key').value.trim())}catch(e){}};
 async function gem(model,body){
-  const k=$('key').value.trim();if(!k)throw new Error('Paste your free Gemini API key first.');
-  let r;try{r=await fetch(API+model+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},body:JSON.stringify(body)})}
+  const k=$('key').value.trim(),P=window.CF_PROXY;if(!k&&!P)throw new Error('Paste your free Gemini API key first.');
+  let r;try{r=await fetch(k?API+model+':generateContent':P.replace(/\/$/,'')+'/'+model,{method:'POST',headers:k?{'content-type':'application/json','x-goog-api-key':k}:{'content-type':'application/json'},body:JSON.stringify(body)})}
   catch(e){throw new Error('Could not reach Google. Check your connection.')}
   const j=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(j.error&&j.error.message||'Request failed ('+r.status+')');
@@ -111,7 +111,9 @@ async function check(){
   if(!link){h.textContent='';return}
   if(!/^https?:\/\/([\w-]+\.)?tiktok\.com\//i.test(link)){h.textContent='Paste a full TikTok video link, starting with https://';return}
   h.textContent='Checking the video…';
-  let o=null;try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){}
+  let o=null;const P=window.CF_PROXY;
+  if(P){try{const r=await fetch(P.replace(/\/$/,'')+'/tiktok?url='+encodeURIComponent(link));o=await r.json()}catch(e){}}
+  if(!o||o.title===undefined){try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){o=null}}
   if(my!==seq)return;
   h.textContent='';
   const th=$('thumb');th.referrerPolicy='no-referrer';th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
@@ -127,7 +129,7 @@ function showDone(r){
 }
 async function go(){
   const m=$('msg');
-  if(!$('key').value.trim()){$('more').open=true;$('key').focus();$('cmsg').textContent='First paste your free Gemini key under More options, then tap again.';return}
+  if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('key').focus();$('cmsg').textContent='First paste your free Gemini key under More options, then tap again.';return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=true;
   m.textContent='Writing a fresh script…';$('work').scrollIntoView({behavior:'smooth'});
   if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}

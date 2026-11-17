@@ -49,3 +49,7 @@ Repo Settings, then Pages, then "Deploy from a branch", branch `main`, folder `/
 ## Contributing
 
 Ideas welcome: more subtitle styles, more languages for the interface, offline voice packs, stock-footage search.
+
+## Shared relay (no key for users)
+
+`worker/worker.js` is a small Cloudflare Worker that holds your Gemini key as a secret so visitors need no key. Deploy it, then put its address in `config.js`. Use a key from a project with billing off, and never commit the key. Free-tier quota is shared by all users.
