@@ -106,7 +106,10 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
-let seq=0,tmr;
+let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false;
+function setP(p,l){p=Math.min(100,Math.max(0,p));const r=Math.round(p);if(r===lastP&&l===lastL)return;lastP=r;lastL=l;$('prog').hidden=false;$('prog').value=p/100;$('msg').textContent=l+' · '+r+'%'}
+function stopCreep(){clearInterval(creepT)}
+function creep(a,b,l){stopCreep();let p=a;setP(p,l);creepT=setInterval(()=>{p+=(b-p)*.05;setP(p,l)},700)}
 const hasInfo=o=>!!(o&&(o.title!==undefined||o.author_name||o.thumbnail_url||o.html));
 function urlOf(s){const m=(s||'').match(/https?:\/\/[^\s]+/i);return m?m[0]:(s||'').trim()}
 async function check(){
@@ -127,7 +130,7 @@ async function check(){
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
 }
 function showDone(r){
-  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.';
+  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.';$('tip').hidden=true;
   $('out').src=URL.createObjectURL(r.blob);
   $('dl').onclick=()=>{const x=document.createElement('a');x.href=$('out').src;x.download=r.name;x.click();$('dl').textContent='Downloaded ✓'};
   $('dl').textContent='Download video';$('work').scrollIntoView({behavior:'smooth'});
@@ -135,12 +138,13 @@ function showDone(r){
 async function go(){
   const m=$('msg');
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
-  $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=true;
-  m.textContent='Writing a fresh script…';$('work').scrollIntoView({behavior:'smooth'});
-  if(!await writeScript()){m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}
-  m.textContent='Creating the voiceover and video…';
-  const r=await make();
-  if(r)showDone(r);else $('confirm').hidden=false;
+  $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
+  FLOW=true;creep(2,33,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
+  const okS=await writeScript();stopCreep();
+  if(!okS){FLOW=false;$('prog').hidden=true;m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}
+  setP(35,'Script ready');
+  const r=await make();FLOW=false;
+  if(r)showDone(r);else{$('prog').hidden=true;$('confirm').hidden=false}
 }
 $('go').onclick=go;
 $('keylink').onclick=e=>{e.preventDefault();$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'})};
@@ -152,12 +156,12 @@ const audioEl=f=>new Promise((ok,no)=>{const a=new Audio(URL.createObjectURL(f))
 async function make(){
   const ws=words();if(!ws.length){$('msg').textContent='Write a script first.';return}
   if(!window.MediaRecorder){$('msg').textContent='This browser cannot record video. Try Chrome.';return}
-  $('make').disabled=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('prog').hidden=false;$('msg').textContent='Making your video. Keep the screen on…';
+  $('make').disabled=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;const lo=FLOW?35:0,span=FLOW?65:100;lastP=-1;setP(lo+1,'Getting ready');
   let ok=false,wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
   const ac=new(window.AudioContext||window.webkitAudioContext)(),dest=ac.createMediaStreamDestination();
   try{
     let vf=$('voice').files[0];const mf=$('music').files[0];
-    if(!vf&&$('useai').checked){$('msg').textContent='Creating the AI voiceover…';vf=await aiVoice(ws.join(' '))}
+    if(!vf&&$('useai').checked){creep(lo+span*.03,lo+span*.37,'Creating the voiceover');vf=await aiVoice(ws.join(' '));stopCreep()}
     const voice=vf?await audioEl(vf):null,music=mf?await audioEl(mf):null;
     if(voice)ac.createMediaElementSource(voice).connect(dest);
     if(music){music.loop=true;const g=ac.createGain();g.gain.value=voice?.12:.5;ac.createMediaElementSource(music).connect(g).connect(dest)}
@@ -169,16 +173,17 @@ async function make(){
     rec.ondataavailable=e=>e.data.size&&parts.push(e.data);
     const done=new Promise(r=>rec.onstop=r);
     rec.start(1000);voice&&voice.play();music&&music.play();bgEl&&bgEl.play&&bgEl.play();
+    setP(lo+span*.4,'Making the video');
     const t0=performance.now();
-    await new Promise(ok=>{(function loop(){const t=(performance.now()-t0)/1e3;if(t>=D)return ok();frame(t,ws,ends);$('prog').value=t/D;requestAnimationFrame(loop)})()});
-    rec.stop();await done;
+    await new Promise(ok=>{(function loop(){const t=(performance.now()-t0)/1e3;if(t>=D)return ok();frame(t,ws,ends);setP(lo+span*(.4+.58*t/D),'Making the video');requestAnimationFrame(loop)})()});
+    rec.stop();await done;setP(lo+span*.99,'Saving your video');
     voice&&voice.pause();music&&music.pause();
     const type=(mt.split(';')[0]||'video/webm'),id=String(Date.now());
     const vrec={id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})};await put(vrec);
     $('msg').textContent='Done. Download your video below before it expires.';
     await render();ok=vrec;
   }catch(e){$('msg').textContent='Something went wrong: '+e.message}
-  ac.close();wl&&wl.release();$('make').disabled=false;$('prog').hidden=true;idle();return ok;
+  stopCreep();ac.close();wl&&wl.release();$('make').disabled=false;$('prog').hidden=true;idle();return ok;
 }
 $('make').onclick=async()=>{const r=await make();if(r)showDone(r)};
 $('wpm').oninput=e=>$('wpmv').textContent=e.target.value;
