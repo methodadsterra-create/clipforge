@@ -1,2 +1,2 @@
-// Put your Cloudflare Worker address here (NOT your Gemini key). Leave empty to make users add their own key.
-window.CF_PROXY='';
+// Address of the ClipForge relay (a Cloudflare Worker). This is public and is NOT a secret. Never put an API key here.
+window.CF_PROXY='https://clipforge-api.playcooked.workers.dev';
