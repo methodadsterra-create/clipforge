@@ -74,7 +74,7 @@ async function writeScript(){
     let cap=CAP;
     if(link&&!cap){
       try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));const o=await r.json();cap=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ')}catch(e){}
-      if(!cap&&!f&&!topic){w.textContent="Could not read that link from the browser. Paste the video's caption or a short description in the topic box, then try again.";$('write').disabled=false;return}
+      if(!cap&&!f&&!topic){w.textContent="ClipForge could not find a caption for this video. Type one sentence about it in the note box above, then tap again.";$('write').disabled=false;return}
     }
     const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ');
     const rules=`Language: ${$('lang').value||'English'}. Write exactly ${n} part${n>1?'s':''}, each about ${$('len').value} words. ${n>1?'This is a series: every part opens with its own hook, stands alone, and ends with a cliffhanger that makes people want the next part. The last part ends with a strong closing line and a call to follow.':'Open with a hook in the first sentence and end with a strong closing line and a call to action.'} Use short punchy sentences and build curiosity. Return JSON only: {"why_it_works":"2 or 3 sentences on what makes the source idea work","parts":[{"title":"short title","script":"spoken words only, no headings, no stage directions"}]}.`;
@@ -107,7 +107,7 @@ async function aiVoice(text){
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
 let seq=0,tmr;
-const hasInfo=o=>!!(o&&(o.title!==undefined||o.author_name||o.thumbnail_url));
+const hasInfo=o=>!!(o&&(o.title!==undefined||o.author_name||o.thumbnail_url||o.html));
 function urlOf(s){const m=(s||'').match(/https?:\/\/[^\s]+/i);return m?m[0]:(s||'').trim()}
 async function check(){
   const link=urlOf($('link').value),h=$('hint'),my=++seq;CAP='';$('confirm').hidden=true;
@@ -120,8 +120,10 @@ async function check(){
   if(my!==seq)return;
   h.textContent='';
   const th=$('thumb');th.referrerPolicy='no-referrer';th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
-  if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';$('manualbox').hidden=true}
+  if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
+  const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
+  if(sm){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
 }
 function showDone(r){
