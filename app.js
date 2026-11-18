@@ -65,37 +65,39 @@ function frame(t,ws,ends){
 const words=()=>$('script').value.trim().split(/\s+/).filter(Boolean);
 function idle(){const[w,h]=SZ[$('fmt').value];cv.width=w;cv.height=h;const s='Your words appear here one by one'.split(' ');frame(0,s,times(s,3))}
 /* ---- AI helper: Gemini with the user's own free key ---- */
-const TEXT_MODEL='gemini-3.8-flash',TTS_MODEL='gemini-3.8-flash-lite-tts',API='https://generativelanguage.googleapis.com/v1beta/models/';
+const TEXT_MODELS=['gemini-3.5-flash-lite','gemini-3.1-flash-lite','gemini-3.8-flash'],TTS_MODEL='gemini-3.8-flash-lite-tts',API='https://generativelanguage.googleapis.com/v1beta/models/';
 try{$('key').value=localStorage.getItem('cf_key')||''}catch(e){}
 $('key').oninput=()=>{try{localStorage.setItem('cf_key',$('key').value.trim())}catch(e){}};
 async function gem(model,body){
   const k=$('key').value.trim(),P=window.CF_PROXY;if(!k&&!P)throw new Error('Paste your free Gemini API key first.');
-  let r;try{r=await fetch(k?API+model+':generateContent':P.replace(/\/$/,'')+'/'+model,{method:'POST',headers:k?{'content-type':'application/json','x-goog-api-key':k}:{'content-type':'application/json'},body:JSON.stringify(body)})}
-  catch(e){throw new Error('Could not reach Google. Check your connection.')}
-  const j=await r.json().catch(()=>({}));
-  if(r.status===429)throw new Error('The free limit is used up for now. Try again later, or add your own free key (see How to get your free key under More options).');
-  if(!r.ok)throw new Error(j.error&&j.error.message||'Request failed ('+r.status+')');
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);let r;
+  try{r=await fetch(k?API+model+':generateContent':P.replace(/\/$/,'')+'/'+model,{method:'POST',signal:ctl.signal,headers:k?{'content-type':'application/json','x-goog-api-key':k}:{'content-type':'application/json'},body:JSON.stringify(body)})}
+  catch(e){clearTimeout(to);throw new Error(e.name==='AbortError'?'Google took too long to answer. Try a shorter clip, or try again in a minute.':'Could not reach Google. Check your connection.')}
+  clearTimeout(to);
+  const j=await r.json().catch(()=>({})),d=(j.error&&j.error.message)||'';
+  if(!r.ok){const e=new Error(r.status===429?'The free limit is used up for now ('+d.slice(0,120)+'). Try again later, or add your own free key (see How to get your free key under More options).':(d||'Request failed ('+r.status+')'));e.status=r.status;e.detail=d;throw e}
   return j;
 }
+async function genText(body){let last;for(const m of TEXT_MODELS){try{return await gem(m,body)}catch(e){last=e;if(e.status!==429&&e.status!==404)throw e}}throw last}
 const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
 async function writeScript(){
   const f=$('ref').files[0]||((MEDIA.find(m=>m.video&&m.file.size<=18*1048576)||{}).file),topic=$('topic').value.trim(),link=urlOf($('link').value),n=+$('parts').value,w=$('why'),L=$('partlist');
   if(!f&&!topic&&!link){w.textContent='Paste a TikTok link, add a reference video, or type a topic first.';return}
   if(f&&f.size>18*1048576){w.textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
-  let ok=false;$('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
+  NOTE=false;let ok=false;$('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
   try{
     let cap=CAP;
     if(link&&!cap){
       try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));const o=await r.json();cap=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ')}catch(e){}
-      if(!cap&&!f&&!topic){w.textContent="ClipForge could not find a caption for this video. Type one sentence about it in the note box above, then tap again.";$('write').disabled=false;return}
+      NOTE=!cap&&!f&&!topic;
     }
-    const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ');
+    const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ')||(f?'':'No caption was available. Choose an interesting, original topic yourself, such as a surprising fact, a short story or a useful tip.');
     const rules=`Language: ${$('lang').value||'English'}. Write exactly ${n} part${n>1?'s':''}, each about ${$('len').value} words. ${n>1?'This is a series: every part opens with its own hook, stands alone, and ends with a cliffhanger that makes people want the next part. The last part ends with a strong closing line and a call to follow.':'Open with a hook in the first sentence and end with a strong closing line and a call to action.'} Use short punchy sentences and build curiosity. Return JSON only: {"why_it_works":"2 or 3 sentences on what makes the source idea work","parts":[{"title":"short title","script":"spoken words only, no headings, no stage directions"}]}.`;
     const parts=[];
     if(f){parts.push({inline_data:{mime_type:f.type||'video/mp4',data:await b64(f)}});
       parts.push({text:`Watch this reference video and work out why it holds attention: hook, pacing, structure, ending. ${ctx} Then write completely new, original voiceover scripts on the same general theme with a fresh angle. Never copy or closely paraphrase wording from the video. ${rules}`})}
     else parts.push({text:`Create fresh, original short-video voiceover scripts inspired by this. ${ctx} Find a new angle. Never copy or closely paraphrase the wording or story beats of the source. ${rules}`});
-    const j=await gem(TEXT_MODEL,{contents:[{parts}],generationConfig:{responseMimeType:'application/json'}});
+    const j=await genText({contents:[{parts}],generationConfig:{responseMimeType:'application/json'}});
     const raw=(j.candidates&&j.candidates[0].content.parts.map(x=>x.text||'').join(''))||'';
     let o;try{o=JSON.parse(raw)}catch(e){o={parts:[{title:'Script',script:raw}]}}
     const ps=(o.parts||(o.script?[{title:'Script',script:o.script}]:[])).filter(p=>p&&p.script);
@@ -103,7 +105,7 @@ async function writeScript(){
     ps.forEach((p,i)=>{const d=document.createElement('div'),b=document.createElement('button');b.className='alt';b.textContent=(ps.length>1?`Part ${i+1}: `:'')+(p.title||'Use this script');b.onclick=()=>{$('script').value=p.script.trim();$('script').scrollIntoView({behavior:'smooth'})};d.append(b);L.append(d)});
     $('script').value=ps[0].script.trim();
     w.textContent=(o.why_it_works?'Why it works: '+o.why_it_works+' ':'')+(ps.length>1?'Tap a part to load it, make its video, then load the next part.':'Script ready below. Edit it freely.');
-    ok=true;
+    ok=true;lastKey=inputKey();
   }catch(e){w.textContent='Something went wrong: '+e.message}
   $('write').disabled=false;return ok;
 }
@@ -111,7 +113,8 @@ $('write').onclick=writeScript;
 function wav(n){const v=new DataView(new ArrayBuffer(44)),s=(o,x)=>[...x].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
   s(0,'RIFF');v.setUint32(4,36+n,true);s(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,24e3,true);v.setUint32(28,48e3,true);v.setUint16(32,2,true);v.setUint16(34,16,true);s(36,'data');v.setUint32(40,n,true);return v.buffer}
 async function aiVoice(text){
-  const j=await gem(TTS_MODEL,{contents:[{parts:[{text}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:$('vname').value}}}}});
+  const tbody={contents:[{parts:[{text}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:$('vname').value}}}}};
+  let j;try{j=await gem(TTS_MODEL,tbody)}catch(e){if(e.status===429&&!/per ?day/i.test(e.detail||'')){await new Promise(r=>setTimeout(r,25000));j=await gem(TTS_MODEL,tbody)}else throw e}
   const p=((j.candidates&&j.candidates[0].content.parts)||[]).find(x=>x.inlineData||x.inline_data),d=p&&(p.inlineData||p.inline_data);
   if(!d)throw new Error('The voice service returned no audio.');
   const bin=Uint8Array.from(atob(d.data),c=>c.charCodeAt(0)),m=d.mimeType||d.mime_type||'';
@@ -119,7 +122,8 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
-let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false;
+let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='';
+function inputKey(){return [urlOf($('link').value),$('topic').value.trim(),$('lang').value,$('len').value,$('parts').value,($('ref').files[0]||{}).name,MEDIA.map(m=>m.file&&m.file.name+m.file.size).join(',')].join('|')}
 function setP(p,l){p=Math.min(100,Math.max(0,p));const r=Math.round(p);if(r===lastP&&l===lastL)return;lastP=r;lastL=l;$('prog').hidden=false;$('prog').value=p/100;$('msg').textContent=l+' · '+r+'%'}
 function stopCreep(){clearInterval(creepT)}
 function creep(a,b,l){stopCreep();let p=a;setP(p,l);creepT=setInterval(()=>{p+=(b-p)*.05;setP(p,l)},700)}
@@ -143,7 +147,7 @@ async function check(){
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
 }
 function showDone(r){
-  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.';$('tip').hidden=true;
+  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'');$('tip').hidden=true;
   $('out').src=URL.createObjectURL(r.blob);
   $('dl').onclick=()=>{const x=document.createElement('a');x.href=$('out').src;x.download=r.name;x.click();$('dl').textContent='Downloaded ✓'};
   $('dl').textContent='Download video';$('work').scrollIntoView({behavior:'smooth'});
@@ -154,7 +158,8 @@ async function go(){
   if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,33,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
-  const okS=await writeScript();stopCreep();
+  let okS=true;if(!($('script').value.trim()&&lastKey===inputKey()))okS=await writeScript();
+  stopCreep();
   if(!okS){FLOW=false;$('prog').hidden=true;m.textContent=$('why').textContent||'Could not write the script.';$('confirm').hidden=false;return}
   setP(35,'Script ready');
   const r=await make();FLOW=false;
@@ -162,7 +167,7 @@ async function go(){
 }
 $('go').onclick=go;
 $('keylink').onclick=e=>{e.preventDefault();$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'})};
-$('link').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(check,400)};
+$('link').oninput=()=>{lastKey='';clearTimeout(tmr);tmr=setTimeout(check,400)};
 $('no').onclick=()=>{seq++;$('confirm').hidden=true;$('link').value='';CAP='';$('link').focus()};
 $('again').onclick=()=>{$('work').hidden=true;$('done').hidden=true;$('link').value='';$('confirm').hidden=true;CAP='';scrollTo({top:0,behavior:'smooth'})};
 /* ---- create ---- */
