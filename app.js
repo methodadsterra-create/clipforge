@@ -107,6 +107,7 @@ async function aiVoice(text){
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
 let seq=0,tmr;
+const hasInfo=o=>!!(o&&(o.title!==undefined||o.author_name||o.thumbnail_url));
 function urlOf(s){const m=(s||'').match(/https?:\/\/[^\s]+/i);return m?m[0]:(s||'').trim()}
 async function check(){
   const link=urlOf($('link').value),h=$('hint'),my=++seq;CAP='';$('confirm').hidden=true;
@@ -114,14 +115,14 @@ async function check(){
   if(!/^https?:\/\/([\w-]+\.)?tiktok\.com\//i.test(link)){h.textContent='Paste a full TikTok video link, starting with https://';return}
   h.textContent='Checking the video…';
   let o=null,dbg=[];const P=window.CF_PROXY;
-  if(P){try{const r=await fetch(P.replace(/\/$/,'')+'/tiktok?url='+encodeURIComponent(link));o=await r.json();if(o.title===undefined)dbg.push('relay: '+((o.error&&o.error.message)||o.message||('status '+r.status)))}catch(e){dbg.push('relay: '+e.message)}}else dbg.push('relay address not set');
-  if(!o||o.title===undefined){try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){o=null;dbg.push('direct: '+e.message)}}
+  if(P){try{const r=await fetch(P.replace(/\/$/,'')+'/tiktok?url='+encodeURIComponent(link));o=await r.json();if(!hasInfo(o))dbg.push('relay: '+((o.error&&o.error.message)||o.message||('status '+r.status+' '+JSON.stringify(o).slice(0,140))))}catch(e){dbg.push('relay: '+e.message)}}else dbg.push('relay address not set');
+  if(!hasInfo(o)){try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){o=null;dbg.push('direct: '+e.message)}}
   if(my!==seq)return;
   h.textContent='';
   const th=$('thumb');th.referrerPolicy='no-referrer';th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
-  if(o&&o.title!==undefined){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'(no caption)';$('by').textContent=o.author_name||'';$('manualbox').hidden=true}
+  if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';$('manualbox').hidden=true}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
-  $('cmsg').textContent=(o&&o.title!==undefined)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
+  $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
 }
 function showDone(r){
   $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.';
