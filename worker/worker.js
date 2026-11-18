@@ -19,7 +19,8 @@ export default {
 
     if (req.method === 'GET' && url.pathname === '/tiktok') {
       let cur;
-      try { cur = new URL(url.searchParams.get('url')); } catch (e) { return err(400, 'Bad link.'); }
+      const m = (url.searchParams.get('url') || '').match(/https?:\/\/[^\s]+/i);
+      try { cur = new URL(m ? m[0] : ''); } catch (e) { return err(400, 'Bad link.'); }
       for (let i = 0; i < 4; i++) {
         if (cur.protocol !== 'https:' || !TT.test(cur.hostname)) return err(400, 'Only TikTok links.');
         if (!/^(vm|vt)\./i.test(cur.hostname)) break;
@@ -28,8 +29,11 @@ export default {
         if (!loc) break;
         cur = new URL(loc, cur);
       }
+      const idm = cur.pathname.match(/^\/v\/(\d+)/);
+      if (idm) cur = new URL('https://www.tiktok.com/@tiktok/video/' + idm[1]);
       cur.search = '';
       const o = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(cur.toString()));
+      if (!o.ok) return err(502, 'TikTok replied ' + o.status + ' for ' + cur.hostname + cur.pathname.slice(0, 40));
       return new Response(o.body, { status: o.status, headers: { ...cors, 'content-type': 'application/json' } });
     }
 
