@@ -3,6 +3,12 @@
 // 2) GET  /tiktok?url=...  -> follows short links and returns TikTok's public oEmbed info
 // Settings: secret GEMINI_KEY; variables ALLOWED_ORIGIN, DAILY_LIMIT (optional); KV binding LIMITS (optional).
 const TT = /(^|\.)tiktok\.com$/i;
+const meta = (h, k) => {
+  const a = h.match(new RegExp('<meta[^>]+(?:property|name)=["\']' + k + '["\'][^>]*content=["\']([^"\']*)["\']', 'i'));
+  const b = h.match(new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]*(?:property|name)=["\']' + k + '["\']', 'i'));
+  const m = a || b;
+  return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : '';
+};
 export default {
   async fetch(req, env) {
     const cors = {
@@ -34,7 +40,18 @@ export default {
       cur.search = '';
       const o = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(cur.toString()));
       if (!o.ok) return err(502, 'TikTok replied ' + o.status + ' for ' + cur.hostname + cur.pathname.slice(0, 40));
-      return new Response(o.body, { status: o.status, headers: { ...cors, 'content-type': 'application/json' } });
+      const data = await o.json();
+      if (!data.title || !data.thumbnail_url) {
+        try {
+          const p = await fetch(cur.toString(), { headers: { 'user-agent': 'Mozilla/5.0 (compatible; ClipForge-LinkPreview/1.0)', 'accept-language': 'en' } });
+          const h = (await p.text()).slice(0, 400000);
+          const d = meta(h, 'og:description') || meta(h, 'description'), t = meta(h, 'og:title'), im = meta(h, 'og:image');
+          if (!data.title && (d || t)) data.title = (d || t).slice(0, 400);
+          if (!data.author_name && t) data.author_name = t.slice(0, 120);
+          if (!data.thumbnail_url && im) data.thumbnail_url = im;
+        } catch (e) {}
+      }
+      return json(200, data);
     }
 
     if (req.method !== 'POST') return err(403, 'Not allowed.');

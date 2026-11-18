@@ -28,10 +28,23 @@ async function render(){
 setInterval(()=>{let exp=0;document.querySelectorAll('.item').forEach(d=>{const c=left({created:+d.dataset.c});if(c.l<=0)exp=1;d.querySelector('.cd').textContent=c.t;d.classList.toggle('low',c.l<72e5)});if(exp)render()},3e4);
 /* ---- drawing ---- */
 function times(ws,D){const w=ws.map(x=>x.length+2),s=w.reduce((a,b)=>a+b,0);let t=0;return w.map(x=>(t+=x/s*D))}
+let MEDIA=[];
+function slide(m,p,a){const W=cv.width,H=cv.height;if(!m.w||!m.h)return;const s=Math.max(W/m.w,H/m.h)*(1+.1*p);ctx.globalAlpha=a;ctx.drawImage(m.el,(W-m.w*s)/2,(H-m.h*s)/2,m.w*s,m.h*s);ctx.globalAlpha=1}
+function drawBg(t,D){
+  const W=cv.width,H=cv.height,c=GR[$('bg').value],g=ctx.createLinearGradient(0,0,W*.3,H);
+  g.addColorStop(0,c[0]);g.addColorStop(1,c[1]);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<3;i++){const a=t*.35+i*2.1,x=W*(.5+.38*Math.sin(a+i)),y=H*(.5+.38*Math.cos(a*.8+i*1.7)),r=Math.max(W,H)*.5,rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(255,255,255,.18)');rg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=rg;ctx.fillRect(0,0,W,H)}
+  const n=MEDIA.length;
+  if(n){const seg=D/n,i=Math.min(n-1,Math.floor(t/seg)),el=t-i*seg,m=MEDIA[i];
+    MEDIA.forEach((x,k)=>{if(x.video&&k!==i&&k!==i-1&&!x.el.paused)x.el.pause()});
+    if(m.video&&m.el.paused)m.el.play().catch(()=>{});
+    if(i>0&&el<.5){slide(MEDIA[i-1],1,1);slide(m,el/seg,el/.5)}else slide(m,el/seg,1);
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(0,0,W,H)}
+}
 function frame(t,ws,ends){
   const W=cv.width,H=cv.height;
-  const g=ctx.createLinearGradient(0,0,W*.3,H),c=GR[$('bg').value];g.addColorStop(0,c[0]);g.addColorStop(1,c[1]);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(bgEl){const iw=bgEl.videoWidth||bgEl.naturalWidth,ih=bgEl.videoHeight||bgEl.naturalHeight;if(iw){const s=Math.max(W/iw,H/ih);ctx.drawImage(bgEl,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(0,0,W,H)}}
+  const D=ends[ends.length-1]||1;drawBg(t,D);
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(0,H-8,W*Math.min(1,t/D),8);
   if(!ws.length)return;
   let i=ends.findIndex(e=>t<e);if(i<0)i=ws.length-1;
   const st=$('sub').value,sz=Math.round(Math.min(W,H)*.085),gap=sz*.3,s0=Math.floor(i/3)*3,ch=ws.slice(s0,s0+3);
@@ -66,7 +79,7 @@ async function gem(model,body){
 }
 const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
 async function writeScript(){
-  const f=$('ref').files[0],topic=$('topic').value.trim(),link=urlOf($('link').value),n=+$('parts').value,w=$('why'),L=$('partlist');
+  const f=$('ref').files[0]||((MEDIA.find(m=>m.video&&m.file.size<=18*1048576)||{}).file),topic=$('topic').value.trim(),link=urlOf($('link').value),n=+$('parts').value,w=$('why'),L=$('partlist');
   if(!f&&!topic&&!link){w.textContent='Paste a TikTok link, add a reference video, or type a topic first.';return}
   if(f&&f.size>18*1048576){w.textContent='That video is over 18 MB. Pick a shorter or smaller clip.';return}
   let ok=false;$('write').disabled=true;L.textContent='';w.textContent='Working on it, this can take up to a minute…';
@@ -126,7 +139,7 @@ async function check(){
   if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
   const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
-  if(sm){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
+  if(sm&&!(o&&o.thumbnail_url)){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
 }
 function showDone(r){
@@ -138,6 +151,7 @@ function showDone(r){
 async function go(){
   const m=$('msg');
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
+  if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,33,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
   const okS=await writeScript();stopCreep();
@@ -155,6 +169,7 @@ $('again').onclick=()=>{$('work').hidden=true;$('done').hidden=true;$('link').va
 const audioEl=f=>new Promise((ok,no)=>{const a=new Audio(URL.createObjectURL(f));a.onloadedmetadata=()=>ok(a);a.onerror=()=>no(new Error('Could not read that audio file'))});
 async function make(){
   const ws=words();if(!ws.length){$('msg').textContent='Write a script first.';return}
+  if(MEDIA.length&&!$('rights').checked){$('work').hidden=false;$('msg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
   if(!window.MediaRecorder){$('msg').textContent='This browser cannot record video. Try Chrome.';return}
   $('make').disabled=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;const lo=FLOW?35:0,span=FLOW?65:100;lastP=-1;setP(lo+1,'Getting ready');
   let ok=false,wl;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
@@ -165,6 +180,8 @@ async function make(){
     const voice=vf?await audioEl(vf):null,music=mf?await audioEl(mf):null;
     if(voice)ac.createMediaElementSource(voice).connect(dest);
     if(music){music.loop=true;const g=ac.createGain();g.gain.value=voice?.12:.5;ac.createMediaElementSource(music).connect(g).connect(dest)}
+    let orig=null;const kv=MEDIA.find(m=>m.video);
+    if($('keepaudio').checked&&kv){orig=new Audio(kv.url);orig.loop=true;const og=ac.createGain();og.gain.value=.15;ac.createMediaElementSource(orig).connect(og).connect(dest)}
     const D=(voice?voice.duration:ws.length/$('wpm').value*60)+.6,ends=times(ws,D-.6);
     idle();
     const stream=cv.captureStream(30);dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
@@ -172,12 +189,12 @@ async function make(){
     const rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:2.5e6}),parts=[];
     rec.ondataavailable=e=>e.data.size&&parts.push(e.data);
     const done=new Promise(r=>rec.onstop=r);
-    rec.start(1000);voice&&voice.play();music&&music.play();bgEl&&bgEl.play&&bgEl.play();
+    rec.start(1000);MEDIA.forEach(m=>{if(m.video)m.el.currentTime=0});voice&&voice.play();music&&music.play();orig&&orig.play();
     setP(lo+span*.4,'Making the video');
     const t0=performance.now();
     await new Promise(ok=>{(function loop(){const t=(performance.now()-t0)/1e3;if(t>=D)return ok();frame(t,ws,ends);setP(lo+span*(.4+.58*t/D),'Making the video');requestAnimationFrame(loop)})()});
     rec.stop();await done;setP(lo+span*.99,'Saving your video');
-    voice&&voice.pause();music&&music.pause();
+    voice&&voice.pause();music&&music.pause();orig&&orig.pause();MEDIA.forEach(m=>m.video&&m.el.pause());
     const type=(mt.split(';')[0]||'video/webm'),id=String(Date.now());
     const vrec={id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})};await put(vrec);
     $('msg').textContent='Done. Download your video below before it expires.';
@@ -188,8 +205,13 @@ async function make(){
 $('make').onclick=async()=>{const r=await make();if(r)showDone(r)};
 $('wpm').oninput=e=>$('wpmv').textContent=e.target.value;
 ['fmt','sub','bg'].forEach(k=>$(k).onchange=idle);
-$('bgfile').onchange=e=>{const f=e.target.files[0];if(!f){bgEl=null;return idle()}const u=URL.createObjectURL(f);
-  if(f.type.startsWith('video')){bgEl=document.createElement('video');Object.assign(bgEl,{muted:true,loop:true,playsInline:true,src:u});bgEl.onloadeddata=idle}
-  else{bgEl=new Image();bgEl.onload=idle;bgEl.src=u}};
+$('bgfile').onchange=async e=>{
+  MEDIA=[];$('mediainfo').textContent='Loading…';
+  for(const f of [...e.target.files].slice(0,8)){
+    if(f.type.startsWith('video')){const v=document.createElement('video');const u=URL.createObjectURL(f);Object.assign(v,{muted:true,loop:true,playsInline:true,src:u});await new Promise(r=>{v.onloadeddata=r;v.onerror=r});MEDIA.push({el:v,video:true,url:u,file:f,w:v.videoWidth,h:v.videoHeight})}
+    else{const bmp=await createImageBitmap(f).catch(()=>null);if(!bmp)continue;const k=Math.min(1,1280/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close&&bmp.close();MEDIA.push({el:c,file:f,w:c.width,h:c.height})}
+  }
+  $('mediainfo').textContent=MEDIA.length?MEDIA.length+' file(s) added. They play one after another in your video.':'Without these, the video uses a moving colour background. Only use media you own or may use.';idle();
+};
 idle();render();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
