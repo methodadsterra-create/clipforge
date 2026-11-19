@@ -31,11 +31,12 @@
 <div id="embed"></div>
 <label for="bgfile">Your footage (optional)</label>
 <input type="file" id="bgfile" accept="video/*,image/*" multiple>
-<small id="mediainfo">Add a video, or up to 8 photos and clips. ClipForge writes the script from your video, adds a voiceover and subtitles, and trims or loops it to fit. Without footage you get a moving colour background.</small>
+<small id="mediainfo">Without footage, your video is only subtitles on a coloured background. Add a video (it can also tell the AI what the video is about) or up to 8 photos and clips. ClipForge adds the voiceover and subtitles and trims or loops it to fit.</small>
 <label><input type="checkbox" id="rights"> I own this footage or have permission to use it</label>
 <label><input type="checkbox" id="keepaudio"> Keep the footage's original sound (quiet)</label>
 <div id="manualbox"><label for="topic">Optional: one sentence about the video (helps the script)</label><input type="text" id="topic" placeholder="e.g. a giant dog that weighs 90 kg"></div>
 <button id="go">Yes, create my video</button>
+<button class="alt" id="surprise" hidden>Surprise me (AI picks any topic)</button>
 <button class="alt" id="no">No, try another link</button>
 <small id="cmsg"></small>
 </section>

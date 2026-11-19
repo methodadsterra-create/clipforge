@@ -122,7 +122,7 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
-let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='';
+let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='',SURPRISE=false;
 function inputKey(){return [urlOf($('link').value),$('topic').value.trim(),$('lang').value,$('len').value,$('parts').value,($('ref').files[0]||{}).name,MEDIA.map(m=>m.file&&m.file.name+m.file.size).join(',')].join('|')}
 function setP(p,l){p=Math.min(100,Math.max(0,p));const r=Math.round(p);if(r===lastP&&l===lastL)return;lastP=r;lastL=l;$('prog').hidden=false;$('prog').value=p/100;$('msg').textContent=l+' · '+r+'%'}
 function stopCreep(){clearInterval(creepT)}
@@ -144,10 +144,10 @@ async function check(){
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
   const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
   if(sm&&!(o&&o.thumbnail_url)){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
-  $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('confirm').hidden=false;
+  $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!CAP;$('confirm').hidden=false;
 }
 function showDone(r){
-  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'');$('tip').hidden=true;
+  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'')+(MEDIA.length?'':' Tip: add your own footage on the confirm card so there is video behind the subtitles.');$('tip').hidden=true;
   $('out').src=URL.createObjectURL(r.blob);
   $('dl').onclick=()=>{const x=document.createElement('a');x.href=$('out').src;x.download=r.name;x.click();$('dl').textContent='Downloaded ✓'};
   $('dl').textContent='Download video';$('work').scrollIntoView({behavior:'smooth'});
@@ -156,6 +156,7 @@ async function go(){
   const m=$('msg');
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
   if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
+  if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!SURPRISE){$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,33,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
   let okS=true;if(!($('script').value.trim()&&lastKey===inputKey()))okS=await writeScript();
@@ -166,6 +167,7 @@ async function go(){
   if(r)showDone(r);else{$('prog').hidden=true;$('confirm').hidden=false}
 }
 $('go').onclick=go;
+$('surprise').onclick=async()=>{SURPRISE=true;await go();SURPRISE=false};
 $('keylink').onclick=e=>{e.preventDefault();$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'})};
 $('link').oninput=()=>{lastKey='';clearTimeout(tmr);tmr=setTimeout(check,400)};
 $('no').onclick=()=>{seq++;$('confirm').hidden=true;$('link').value='';CAP='';$('link').focus()};
