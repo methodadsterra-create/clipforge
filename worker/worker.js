@@ -1,7 +1,9 @@
 // ClipForge relay on Cloudflare Workers (free).
-// 1) POST /<gemini-model>  -> forwards to Gemini with your secret key
-// 2) GET  /tiktok?url=...  -> follows short links and returns TikTok's public oEmbed info
-// Settings: secret GEMINI_KEY; variables ALLOWED_ORIGIN, DAILY_LIMIT (optional); KV binding LIMITS (optional).
+// GET  /tiktok?url=...  -> follows short links, returns TikTok's public info (caption, creator, thumbnail when available)
+// GET  /stock?q=a|b|c   -> free Pexels stock photos that match the script (needs secret PEXELS_KEY)
+// GET  /img?u=...       -> passes a Pexels image through with CORS headers
+// POST /<gemini-model>  -> forwards to Gemini with your secret key
+// Settings: secrets GEMINI_KEY, PEXELS_KEY; variables ALLOWED_ORIGIN, DAILY_LIMIT (optional); KV binding LIMITS (optional).
 const TT = /(^|\.)tiktok\.com$/i;
 const meta = (h, k) => {
   const a = h.match(new RegExp('<meta[^>]+(?:property|name)=["\']' + k + '["\'][^>]*content=["\']([^"\']*)["\']', 'i'));
@@ -52,6 +54,30 @@ export default {
         } catch (e) {}
       }
       return json(200, data);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/stock') {
+      if (!env.PEXELS_KEY) return err(501, 'Stock photos are not set up.');
+      const qs = (url.searchParams.get('q') || '').split('|').map(s => s.trim()).filter(Boolean).slice(0, 4);
+      if (!qs.length) return err(400, 'No search words.');
+      const groups = await Promise.all(qs.map(async q => {
+        const r = await fetch('https://api.pexels.com/v1/search?per_page=4&orientation=portrait&query=' + encodeURIComponent(q), {
+          headers: { Authorization: env.PEXELS_KEY }, cf: { cacheTtl: 86400, cacheEverything: true }
+        });
+        if (!r.ok) return [];
+        const j = await r.json();
+        return (j.photos || []).map(p => ({ src: p.src.portrait, by: p.photographer, page: p.url }));
+      }));
+      return json(200, { photos: groups.flat().slice(0, 12) });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/img') {
+      let u;
+      try { u = new URL(url.searchParams.get('u')); } catch (e) { return err(400, 'Bad image.'); }
+      if (u.protocol !== 'https:' || u.hostname !== 'images.pexels.com') return err(400, 'Only Pexels images.');
+      const r = await fetch(u.toString(), { cf: { cacheTtl: 86400, cacheEverything: true } });
+      if (!r.ok) return err(502, 'Image not available.');
+      return new Response(r.body, { headers: { ...cors, 'content-type': r.headers.get('content-type') || 'image/jpeg', 'cache-control': 'public, max-age=86400' } });
     }
 
     if (req.method !== 'POST') return err(403, 'Not allowed.');
