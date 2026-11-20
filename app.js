@@ -89,14 +89,15 @@ async function writeScript(){
     let cap=CAP;
     if(link&&!cap){
       try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));const o=await r.json();cap=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ')}catch(e){}
-      NOTE=!cap&&!f&&!topic;
+      NOTE=!cap&&!f&&!topic&&!THUMB;
     }
-    const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ')||(f?'':'No caption was available. Choose an interesting, original topic yourself, such as a surprising fact, a short story or a useful tip.');
+    const ctx=[cap&&'Caption of a TikTok video that did well: '+cap,topic&&'Topic or notes: '+topic].filter(Boolean).join('. ')||(f||THUMB?'':'No caption was available. Choose an interesting, original topic yourself, such as a surprising fact, a short story or a useful tip.');
     const rules=`Language: ${$('lang').value||'English'}. Write exactly ${n} part${n>1?'s':''}, each about ${$('len').value} words. ${n>1?'This is a series: every part opens with its own hook, stands alone, and ends with a cliffhanger that makes people want the next part. The last part ends with a strong closing line and a call to follow.':'Open with a hook in the first sentence and end with a strong closing line and a call to action.'} Use short punchy sentences and build curiosity. Return JSON only: {"why_it_works":"2 or 3 sentences on what makes the source idea work","visuals":["3 or 4 short English search phrases for generic stock photos that match what the script talks about, in order"],"people_places":["up to 3 real people, places or events named in the script, written as Wikimedia Commons search phrases, or an empty list"],"parts":[{"title":"short title","script":"spoken words only, no headings, no stage directions"}]}.`;
     const parts=[];
     if(f){parts.push({inline_data:{mime_type:f.type||'video/mp4',data:await b64(f)}});
       parts.push({text:`Watch this reference video and work out why it holds attention: hook, pacing, structure, ending. ${ctx} Then write completely new, original voiceover scripts on the same general theme with a fresh angle. Never copy or closely paraphrase wording from the video. ${rules}`})}
-    else parts.push({text:`Create fresh, original short-video voiceover scripts inspired by this. ${ctx} Find a new angle. Never copy or closely paraphrase the wording or story beats of the source. ${rules}`});
+    else{const th=!cap&&!topic&&THUMB;if(th)parts.push({inline_data:{mime_type:THUMB.mime,data:THUMB.data}});
+      parts.push({text:`Create fresh, original short-video voiceover scripts inspired by this. ${th?'The image is the thumbnail of a TikTok video. Work out what the video is probably about from what you can see (scene, objects, place, event) and never identify real people from their faces. ':''}${ctx} Find a new angle. Never copy or closely paraphrase the wording or story beats of the source. ${rules}`})}
     const j=await genText({contents:[{parts}],generationConfig:{responseMimeType:'application/json'}});
     const raw=(j.candidates&&j.candidates[0].content.parts.map(x=>x.text||'').join(''))||'';
     let o;try{o=JSON.parse(raw)}catch(e){o={parts:[{title:'Script',script:raw}]}}
@@ -124,7 +125,7 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
-let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='',SURPRISE=false;
+let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='',SURPRISE=false,THUMB=null;
 function inputKey(){return [urlOf($('link').value),$('topic').value.trim(),$('lang').value,$('len').value,$('parts').value,($('ref').files[0]||{}).name,MEDIA.map(m=>m.file&&m.file.name+m.file.size).join(',')].join('|')}
 function setP(p,l){p=Math.min(100,Math.max(0,p));const r=Math.round(p);if(r===lastP&&l===lastL)return;lastP=r;lastL=l;$('prog').hidden=false;$('prog').value=p/100;$('msg').textContent=l+' · '+r+'%'}
 function stopCreep(){clearInterval(creepT)}
@@ -141,12 +142,13 @@ async function check(){
   if(!hasInfo(o)){try{const r=await fetch('https://www.tiktok.com/oembed?url='+encodeURIComponent(link));o=await r.json()}catch(e){o=null;dbg.push('direct: '+e.message)}}
   if(my!==seq)return;
   h.textContent='';
+  THUMB=(o&&o.thumb_b64)?{mime:o.thumb_mime||'image/jpeg',data:o.thumb_b64}:null;
   const th=$('thumb');th.referrerPolicy='no-referrer';th.onerror=()=>{th.hidden=true};th.hidden=!(o&&o.thumbnail_url);th.src=(o&&o.thumbnail_url)||'';
   if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
   const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
   if(sm&&!(o&&o.thumbnail_url)){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
-  $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!CAP;$('confirm').hidden=false;
+  $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!(CAP||THUMB);$('confirm').hidden=false;
 }
 function showDone(r){
   $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'')+((MEDIA.length||STOCK.length)?'':' Tip: stock visuals are not set up yet. Add your own footage on the confirm card so there is video behind the subtitles.');$('tip').hidden=true;
@@ -159,7 +161,7 @@ async function go(){
   const m=$('msg');
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
   if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
-  if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!SURPRISE){$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
+  if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!THUMB&&!SURPRISE){$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,27,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
   let okS=true;if(!($('script').value.trim()&&lastKey===inputKey()))okS=await writeScript();
@@ -187,15 +189,37 @@ async function commons(q){
   }
   return out;
 }
+async function commonsVideo(q){
+  const u='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch='+encodeURIComponent(q+' filetype:video')+'&prop=videoinfo&viprop=url|size|mime|extmetadata|derivatives';
+  const j=await (await fetch(u)).json(),pages=Object.values((j.query&&j.query.pages)||{}).sort((a,b)=>a.index-b.index),tv=document.createElement('video');
+  for(const p of pages){
+    const ii=p.videoinfo&&p.videoinfo[0];if(!ii)continue;
+    const x=ii.extmetadata||{},lic=(x.LicenseShortName&&x.LicenseShortName.value)||'',art=((x.Artist&&x.Artist.value)||'').replace(/<[^>]*>/g,'').trim().slice(0,50);
+    if(!lic||/non-?free|fair use/i.test(lic))continue;
+    const ds=(ii.derivatives||[]).filter(d=>d.src&&d.type&&tv.canPlayType(d.type)).sort((a,b)=>a.width-b.width),d=ds.find(d=>d.width>=360)||ds[ds.length-1];
+    if(d)return{src:d.src,credit:(art?art+' · ':'')+lic+' · Wikimedia Commons (video)'};
+  }
+  return null;
+}
+function loadClip(c){return new Promise(res=>{
+  const v=document.createElement('video');v.crossOrigin='anonymous';v.muted=true;v.loop=true;v.playsInline=true;v.preload='auto';
+  let tm;const done=ok=>{clearTimeout(tm);res(ok?{el:v,video:true,w:v.videoWidth,h:v.videoHeight,credit:c.credit}:null)};
+  tm=setTimeout(()=>done(false),12000);v.onloadeddata=()=>done(v.videoWidth>0);v.onerror=()=>done(false);v.src=c.src;
+})}
 async function getStock(vis,pp){
-  STOCK=[];const base=(window.CF_PROXY||'').replace(/\/$/,''),A=[],B=[];
+  STOCK.forEach(s=>{if(s.video){s.el.pause();s.el.removeAttribute('src');s.el.load()}});STOCK=[];
+  const base=(window.CF_PROXY||'').replace(/\/$/,''),A=[],B=[];
   try{(await Promise.all((pp||[]).slice(0,3).map(q=>commons(q).catch(()=>[])))).forEach(a=>A.push(...a.slice(0,2)))}catch(e){}
+  let vc=[];try{vc=(await Promise.all((pp||[]).slice(0,2).map(q=>commonsVideo(q).catch(()=>null)))).filter(Boolean)}catch(e){}
   if(base&&vis&&vis.length){try{const j=await (await fetch(base+'/stock?q='+encodeURIComponent(vis.slice(0,4).join('|')))).json();(j.photos||[]).slice(0,6).forEach(p=>B.push({src:base+'/img?u='+encodeURIComponent(p.src),credit:'Photo: '+(p.by||'Pexels')+' · Pexels'}))}catch(e){}}
-  const list=[];for(let i=0;i<Math.max(A.length,B.length);i++){if(A[i])list.push(A[i]);if(B[i])list.push(B[i])}
-  const use=list.slice(0,12);let done=0;
+  const seq=[];let ai=0;for(const c of vc){seq.push(...A.slice(ai,ai+2));ai+=2;seq.push({clip:c})}seq.push(...A.slice(ai),...B);
+  const use=seq.slice(0,12);let done=0;
   await Promise.all(use.map(async(p,i)=>{
-    try{const bmp=await createImageBitmap(await (await fetch(p.src)).blob()),k=Math.min(1,1280/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
-      c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close&&bmp.close();STOCK[i]={el:c,w:c.width,h:c.height,credit:p.credit}}catch(e){}
+    try{
+      if(p.clip)STOCK[i]=await loadClip(p.clip);
+      else{const bmp=await createImageBitmap(await (await fetch(p.src)).blob()),k=Math.min(1,1280/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+        c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close&&bmp.close();STOCK[i]={el:c,w:c.width,h:c.height,credit:p.credit}}
+    }catch(e){}
     done++;setP(30+14*done/use.length,'Finding visuals');
   }));
   STOCK=STOCK.filter(Boolean);return STOCK.length>0;
@@ -226,12 +250,12 @@ async function make(){
     const rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:2.5e6}),parts=[];
     rec.ondataavailable=e=>e.data.size&&parts.push(e.data);
     const done=new Promise(r=>rec.onstop=r);
-    rec.start(1000);MEDIA.forEach(m=>{if(m.video)m.el.currentTime=0});voice&&voice.play();music&&music.play();orig&&orig.play();
+    rec.start(1000);[...MEDIA,...STOCK].forEach(m=>{if(m.video)m.el.currentTime=0});voice&&voice.play();music&&music.play();orig&&orig.play();
     setP(lo+span*.4,'Making the video');
     const t0=performance.now();
     await new Promise(ok=>{(function loop(){const t=(performance.now()-t0)/1e3;if(t>=D)return ok();frame(t,ws,ends);setP(lo+span*(.4+.58*t/D),'Making the video');requestAnimationFrame(loop)})()});
     rec.stop();await done;setP(lo+span*.99,'Saving your video');
-    voice&&voice.pause();music&&music.pause();orig&&orig.pause();MEDIA.forEach(m=>m.video&&m.el.pause());
+    voice&&voice.pause();music&&music.pause();orig&&orig.pause();[...MEDIA,...STOCK].forEach(m=>m.video&&m.el.pause());
     const type=(mt.split(';')[0]||'video/webm'),id=String(Date.now());
     const vrec={id,created:Date.now(),name:`clipforge-${id}.${type.includes('mp4')?'mp4':'webm'}`,blob:new Blob(parts,{type})};await put(vrec);
     $('msg').textContent='Done. Download your video below before it expires.';
