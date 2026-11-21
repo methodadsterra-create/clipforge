@@ -78,6 +78,16 @@ async function gem(model,body){
   if(!r.ok){const e=new Error(r.status===429?'The free limit is used up for now ('+d.slice(0,120)+'). Try again later, or add your own free key (see How to get your free key under More options).':(d||'Request failed ('+r.status+')'));e.status=r.status;e.detail=d;throw e}
   return j;
 }
+async function readLink(link){
+  if(!link)return '';
+  try{
+    const j=await genText({contents:[{parts:[{text:'Open this TikTok video page: '+link+' . Use only what is actually on the page. In two short sentences, say what the video is about (caption, topic, hashtags, creator name). If you cannot open the page or find this information, reply with exactly UNREADABLE.'}]}],tools:[{url_context:{}}]});
+    const c=(j.candidates&&j.candidates[0])||{},md=c.urlContextMetadata||c.url_context_metadata||{},list=md.urlMetadata||md.url_metadata||[];
+    if(!list.some(u=>/SUCCESS/.test(u.urlRetrievalStatus||u.url_retrieval_status||'')))return '';
+    const s=((c.content&&c.content.parts)||[]).map(x=>x.text||'').join('').trim();
+    return(!s||/UNREADABLE/i.test(s)||s.length<12)?'':s.slice(0,600);
+  }catch(e){return ''}
+}
 async function genText(body){let last;for(const m of TEXT_MODELS){try{return await gem(m,body)}catch(e){last=e;if(e.status!==429&&e.status!==404)throw e}}throw last}
 const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
 async function writeScript(){
@@ -125,7 +135,7 @@ async function aiVoice(text){
 }
 /* ---- simple flow: link -> confirm -> video ---- */
 let CAP='';const RTL=['Arabic','Hebrew','Persian','Urdu'];
-let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='',SURPRISE=false,THUMB=null;
+let seq=0,tmr,creepT,lastP=-1,lastL='',FLOW=false,NOTE=false,lastKey='',SURPRISE=false,THUMB=null,READTXT='';
 function inputKey(){return [urlOf($('link').value),$('topic').value.trim(),$('lang').value,$('len').value,$('parts').value,($('ref').files[0]||{}).name,MEDIA.map(m=>m.file&&m.file.name+m.file.size).join(',')].join('|')}
 function setP(p,l){p=Math.min(100,Math.max(0,p));const r=Math.round(p);if(r===lastP&&l===lastL)return;lastP=r;lastL=l;$('prog').hidden=false;$('prog').value=p/100;$('msg').textContent=l+' · '+r+'%'}
 function stopCreep(){clearInterval(creepT)}
@@ -151,7 +161,7 @@ async function check(){
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!(CAP||THUMB);$('confirm').hidden=false;
 }
 function showDone(r){
-  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'')+((MEDIA.length||STOCK.length)?'':' Tip: stock visuals are not set up yet. Add your own footage on the confirm card so there is video behind the subtitles.');$('tip').hidden=true;
+  $('cv').hidden=true;$('prog').hidden=true;$('done').hidden=false;$('msg').textContent='Your video is ready.'+(READTXT?' The AI understood the source as: '+READTXT.slice(0,200)+' If that is wrong, type a sentence in the note box next time.':'')+(NOTE?' No caption was found, so the AI chose its own topic. Add a note next time to steer it.':'')+((MEDIA.length||STOCK.length)?'':' Tip: stock visuals are not set up yet. Add your own footage on the confirm card so there is video behind the subtitles.');$('tip').hidden=true;
   $('out').src=URL.createObjectURL(r.blob);
   const cr=MEDIA.length?[]:[...new Set(STOCK.map(s=>s.credit))];$('creditbox').hidden=!cr.length;$('credits').value=cr.join('\n');
   $('dl').onclick=()=>{const x=document.createElement('a');x.href=$('out').src;x.download=r.name;x.click();$('dl').textContent='Downloaded ✓'};
@@ -161,7 +171,12 @@ async function go(){
   const m=$('msg');
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
   if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
-  if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!THUMB&&!SURPRISE){$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
+  if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!THUMB&&!SURPRISE){
+    $('cmsg').textContent='Trying to read the video page…';$('go').disabled=true;
+    const rt=await readLink(urlOf($('link').value));$('go').disabled=false;
+    if(rt){CAP=rt;READTXT=rt}
+    else{$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
+  }
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,27,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
   let okS=true;if(!($('script').value.trim()&&lastKey===inputKey()))okS=await writeScript();
@@ -175,7 +190,7 @@ async function go(){
 $('go').onclick=go;
 $('surprise').onclick=async()=>{SURPRISE=true;await go();SURPRISE=false};
 $('keylink').onclick=e=>{e.preventDefault();$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'})};
-$('link').oninput=()=>{lastKey='';clearTimeout(tmr);tmr=setTimeout(check,400)};
+$('link').oninput=()=>{lastKey='';READTXT='';clearTimeout(tmr);tmr=setTimeout(check,400)};
 $('no').onclick=()=>{seq++;$('confirm').hidden=true;$('link').value='';CAP='';$('link').focus()};
 $('again').onclick=()=>{$('work').hidden=true;$('done').hidden=true;$('link').value='';$('confirm').hidden=true;CAP='';scrollTo({top:0,behavior:'smooth'})};
 async function commons(q){
