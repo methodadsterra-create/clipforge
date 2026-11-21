@@ -19,6 +19,7 @@ footer{color:var(--mute);font-size:.85rem;padding-bottom:24px}a{color:var(--acc)
 #keyhelp{background:#12141c;border-radius:8px;padding:10px 12px;margin:8px 0}#keyhelp ol,#keyhelp ul{padding-left:20px;margin:8px 0}#keyhelp p{margin:6px 0}
 #embed iframe{display:block;width:100%;max-width:260px;height:462px;border:0;border-radius:10px;margin:10px auto 0}
 progress{height:14px;accent-color:#7c5cff}
+#cmsg{display:block;color:#ffb84d;font-weight:600;margin:12px 0 0}#cmsg:empty{display:none}
 [hidden]{display:none!important}
 #cap{word-break:break-word}details summary{cursor:pointer;font-weight:700}
 .hero{max-width:560px;margin:0 auto;padding:8px 16px 0;text-align:center}

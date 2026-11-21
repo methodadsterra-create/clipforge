@@ -68,9 +68,9 @@ function idle(){const[w,h]=SZ[$('fmt').value];cv.width=w;cv.height=h;const s='Yo
 const TEXT_MODELS=['gemini-3.5-flash-lite','gemini-3.1-flash-lite','gemini-3.8-flash'],TTS_MODEL='gemini-3.8-flash-lite-tts',API='https://generativelanguage.googleapis.com/v1beta/models/';
 try{$('key').value=localStorage.getItem('cf_key')||''}catch(e){}
 $('key').oninput=()=>{try{localStorage.setItem('cf_key',$('key').value.trim())}catch(e){}};
-async function gem(model,body){
+async function gem(model,body,ms){
   const k=$('key').value.trim(),P=window.CF_PROXY;if(!k&&!P)throw new Error('Paste your free Gemini API key first.');
-  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),150000);let r;
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),ms||150000);let r;
   try{r=await fetch(k?API+model+':generateContent':P.replace(/\/$/,'')+'/'+model,{method:'POST',signal:ctl.signal,headers:k?{'content-type':'application/json','x-goog-api-key':k}:{'content-type':'application/json'},body:JSON.stringify(body)})}
   catch(e){clearTimeout(to);throw new Error(e.name==='AbortError'?'Google took too long to answer. Try a shorter clip, or try again in a minute.':'Could not reach Google. Check your connection.')}
   clearTimeout(to);
@@ -81,14 +81,14 @@ async function gem(model,body){
 async function readLink(link){
   if(!link)return '';
   try{
-    const j=await genText({contents:[{parts:[{text:'Open this TikTok video page: '+link+' . Use only what is actually on the page. In two short sentences, say what the video is about (caption, topic, hashtags, creator name). If you cannot open the page or find this information, reply with exactly UNREADABLE.'}]}],tools:[{url_context:{}}]});
+    const j=await genText({contents:[{parts:[{text:'Open this TikTok video page: '+link+' . Use only what is actually on the page. In two short sentences, say what the video is about (caption, topic, hashtags, creator name). If you cannot open the page or find this information, reply with exactly UNREADABLE.'}]}],tools:[{url_context:{}}]},25000);
     const c=(j.candidates&&j.candidates[0])||{},md=c.urlContextMetadata||c.url_context_metadata||{},list=md.urlMetadata||md.url_metadata||[];
     if(!list.some(u=>/SUCCESS/.test(u.urlRetrievalStatus||u.url_retrieval_status||'')))return '';
     const s=((c.content&&c.content.parts)||[]).map(x=>x.text||'').join('').trim();
     return(!s||/UNREADABLE/i.test(s)||s.length<12)?'':s.slice(0,600);
   }catch(e){return ''}
 }
-async function genText(body){let last;for(const m of TEXT_MODELS){try{return await gem(m,body)}catch(e){last=e;if(e.status!==429&&e.status!==404)throw e}}throw last}
+async function genText(body,ms){let last;for(const m of TEXT_MODELS){try{return await gem(m,body,ms)}catch(e){last=e;if(e.status!==429&&e.status!==404)throw e}}throw last}
 const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=()=>no(new Error('Could not read the video'));r.readAsDataURL(f)});
 async function writeScript(){
   const f=$('ref').files[0]||((MEDIA.find(m=>m.video&&m.file.size<=18*1048576)||{}).file),topic=$('topic').value.trim(),link=urlOf($('link').value),n=+$('parts').value,w=$('why'),L=$('partlist');
@@ -157,7 +157,7 @@ async function check(){
   if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
   const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
-  if(sm&&!(o&&o.thumbnail_url)){const f=document.createElement('iframe');f.src=sm[1].replace(/&amp;/g,'&');f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}
+  if(sm){const src=sm[1].replace(/&amp;/g,'&'),pb=document.createElement('button');pb.className='alt';pb.textContent='▶ Preview the TikTok video';pb.onclick=()=>{try{const u=new URL(src);u.searchParams.set('autoplay','0');u.searchParams.set('loop','0');const f=document.createElement('iframe');f.src=u.toString();f.setAttribute('allow','fullscreen');em.textContent='';em.append(f)}catch(e){}};em.append(pb)}
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!(CAP||THUMB);$('confirm').hidden=false;
 }
 function showDone(r){
@@ -172,8 +172,8 @@ async function go(){
   if(!$('key').value.trim()&&!window.CF_PROXY){$('more').open=true;$('keyhelp').open=true;$('keyhelp').scrollIntoView({behavior:'smooth'});$('cmsg').textContent='First add your free Gemini key under More options. The guide there shows how, step by step.';return}
   if(MEDIA.length&&!$('rights').checked){$('cmsg').textContent='Tick the box to confirm you own this footage or have permission to use it.';return}
   if(!CAP&&!$('topic').value.trim()&&!MEDIA.some(m=>m.video)&&!THUMB&&!SURPRISE){
-    $('cmsg').textContent='Trying to read the video page…';$('go').disabled=true;
-    const rt=await readLink(urlOf($('link').value));$('go').disabled=false;
+    $('cmsg').textContent='';$('go').disabled=true;$('go').textContent='Reading the video page…';
+    const rt=await readLink(urlOf($('link').value));$('go').disabled=false;$('go').textContent='Yes, create my video';
     if(rt){CAP=rt;READTXT=rt}
     else{$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
   }
