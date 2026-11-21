@@ -157,7 +157,7 @@ async function check(){
   if(hasInfo(o)){CAP=[o.title,o.author_name&&'creator: '+o.author_name].filter(Boolean).join(' | ');$('cap').textContent=o.title||'Video found';$('by').textContent=o.author_name||'';}
   else{$('cap').textContent="We couldn't read this link here. Short links (vm.tiktok.com) sometimes can't be read. Try the full link, or describe the video below.";$('by').textContent='';$('manualbox').hidden=false}
   const em=$('embed');em.textContent='';const sm=o&&o.html&&String(o.html).match(/src="(https:\/\/www\.tiktok\.com\/(?:player|embed)[^"]*)"/i);
-  if(sm){const src=sm[1].replace(/&amp;/g,'&'),pb=document.createElement('button');pb.className='alt';pb.textContent='▶ Preview the TikTok video';pb.onclick=()=>{try{const u=new URL(src);u.searchParams.set('autoplay','0');u.searchParams.set('loop','0');const f=document.createElement('iframe');f.src=u.toString();f.setAttribute('allow','fullscreen');em.textContent='';em.append(f)}catch(e){}};em.append(pb)}
+  if(sm){try{const u=new URL(sm[1].replace(/&amp;/g,'&'));u.searchParams.set('autoplay','0');u.searchParams.set('loop','0');const f=document.createElement('iframe');f.src=u.toString();f.setAttribute('allow','fullscreen');f.setAttribute('loading','lazy');em.append(f)}catch(e){}}
   $('cmsg').textContent=hasInfo(o)?'':'Details: '+dbg.join(' | ');$('surprise').hidden=!!(CAP||THUMB);$('confirm').hidden=false;
 }
 function showDone(r){
@@ -175,7 +175,7 @@ async function go(){
     $('cmsg').textContent='';$('go').disabled=true;$('go').textContent='Reading the video page…';
     const rt=await readLink(urlOf($('link').value));$('go').disabled=false;$('go').textContent='Yes, create my video';
     if(rt){CAP=rt;READTXT=rt}
-    else{$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. Type one sentence about it in the note box, or add the video under Your footage. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
+    else{$('cmsg').textContent='ClipForge could not read this video, so it does not know what it is about. The easiest fix: add the video file under Your footage and the AI will watch it. Or type one sentence about it in the note box. Or tap Surprise me to let the AI pick any topic.';$('surprise').hidden=false;return}
   }
   $('cmsg').textContent='';$('confirm').hidden=true;$('work').hidden=false;$('done').hidden=true;$('cv').hidden=false;$('tip').hidden=false;lastP=-1;
   FLOW=true;creep(2,27,'Writing a fresh script');$('work').scrollIntoView({behavior:'smooth'});
